@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.3";
+  const APP_VERSION = "1.9.4";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
@@ -232,6 +232,11 @@
     if (!Array.isArray(state.accounts)) state.accounts = [];
     migrateAccounts();
     migrateHabitsAndProjects();
+    const repairedMarks = repairHabitMarksIn(state.habitMarks);
+    if (JSON.stringify(repairedMarks) !== JSON.stringify(state.habitMarks || {})) {
+      state.habitMarks = repairedMarks;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+    }
     if (typeof state.updatedAt !== "number") state.updatedAt = Date.now();
   }
 
@@ -615,7 +620,7 @@
   }
 
   function getMark(habitId, dateStr) {
-    return state.habitMarks[habitMarkKey(habitId, dateStr)] || null;
+    return normalizeMarkValue(state.habitMarks[habitMarkKey(habitId, dateStr)]) || null;
   }
 
   function setMark(habitId, dateStr, status) {
@@ -2295,11 +2300,42 @@
     return trySyncHealth();
   }
 
-  function mergeHabitMarks(a, b) {
+  function normalizeMarkValue(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "string") {
+      if (v === "done" || v === "miss" || v === "bad") return v;
+      return null;
+    }
+    // Corrupted by old merge that spread a string into {0:"d",1:"o",...}
+    if (typeof v === "object") {
+      const keys = Object.keys(v);
+      if (keys.length && keys.every((k) => /^\d+$/.test(k))) {
+        const s = keys.sort((a, b) => Number(a) - Number(b)).map((k) => v[k]).join("");
+        if (s === "done" || s === "miss" || s === "bad") return s;
+      }
+    }
+    return null;
+  }
+
+  function repairHabitMarksIn(marks) {
+    const src = marks || {};
     const out = {};
-    const ids = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
-    ids.forEach((hid) => {
-      out[hid] = { ...(a && a[hid] ? a[hid] : {}), ...(b && b[hid] ? b[hid] : {}) };
+    Object.keys(src).forEach((k) => {
+      const n = normalizeMarkValue(src[k]);
+      if (n) out[k] = n;
+    });
+    return out;
+  }
+
+  function mergeHabitMarks(a, b) {
+    // habitMarks are FLAT keys "habitId:YYYY-MM-DD" -> "done"|"miss"|"bad"
+    const out = {};
+    const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+    keys.forEach((k) => {
+      const bv = normalizeMarkValue(b && b[k]);
+      const av = normalizeMarkValue(a && a[k]);
+      const val = bv != null ? bv : av;
+      if (val) out[k] = val;
     });
     return out;
   }
