@@ -2,7 +2,9 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.2";
+  const APP_VERSION = "1.9.3";
+  // Remote sync API (used when the app is on GitHub Pages / static host)
+  const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
   const STORAGE_KEY = "vida-app-v1";
   const SEED_FLAG = "vida-seed-present";
@@ -2173,8 +2175,7 @@
   }
 
   function localSyncUrl(id) {
-    // Same-origin optional server (vida-sync-server)
-    return new URL(`/api/sync/${encodeURIComponent(id)}`, location.origin).toString();
+    return syncApiOrigin() + "/api/sync/" + encodeURIComponent(id);
   }
 
   function setSyncStatus(status, detail) {
@@ -2276,13 +2277,22 @@
     return true;
   }
 
-  async function tryLocalHealth() {
+  function syncApiOrigin() {
+    if (SYNC_REMOTE_BASE) return SYNC_REMOTE_BASE.replace(/\/$/, "");
+    return location.origin;
+  }
+
+  async function trySyncHealth() {
     try {
-      const res = await fetch("/api/health", { cache: "no-store" });
+      const res = await fetch(syncApiOrigin() + "/api/health", { cache: "no-store" });
       return res.ok;
     } catch (_) {
       return false;
     }
+  }
+
+  async function tryLocalHealth() {
+    return trySyncHealth();
   }
 
   function mergeHabitMarks(a, b) {
@@ -2403,8 +2413,8 @@
     syncInFlight = true;
     setSyncStatus("pending");
     try {
-      if (!(await tryLocalHealth())) {
-        throw new Error("Sin servidor de sync. Usa el enlace https compartido.");
+      if (!(await trySyncHealth())) {
+        throw new Error("Sync no disponible ahora. Tus datos están seguros en este dispositivo; usa Exportar respaldo.");
       }
       const remotePack = await pullRemote();
       const remote = remotePack && remotePack.data;
@@ -2726,6 +2736,32 @@
   }
   function escapeAttr(s) { return escapeHtml(s); }
 
+
+  async function importMoneyManagerBundle(opts) {
+    const quiet = opts && opts.quiet;
+    try {
+      const res = await fetch("./data/mm-import.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error("No se encontró el respaldo importado");
+      const pack = await res.json();
+      const incoming = pack.state || pack;
+      if (!incoming.accounts && !incoming.transactions) throw new Error("Archivo inválido");
+      // Keep habits/projects; replace finance from MM
+      state.accounts = (incoming.accounts || []).map((a) => ({ ...a, _fromMM: true }));
+      state.transactions = (incoming.transactions || []).map((t) => ({ ...t, _fromMM: true }));
+      if (incoming.categories) state.categories = incoming.categories;
+      if (Array.isArray(incoming.loans)) state.loans = incoming.loans;
+      state.updatedAt = Date.now();
+      ensureState();
+      saveState();
+      renderAll();
+      if (!quiet) toast("Cuentas y movimientos de Money Manager importados");
+      return true;
+    } catch (e) {
+      if (!quiet) toast("No se pudo importar: " + (e.message || e));
+      return false;
+    }
+  }
+
   function wipeSeed() {
     if (!confirm("¿Borrar solo los datos de ejemplo? Tus registros propios se conservan.")) return;
     state.habits = state.habits.filter((h) => !h._seed);
@@ -2948,6 +2984,8 @@
     initSyncUI();
     initBackupUI();
     document.getElementById("btn-wipe-seed").addEventListener("click", wipeSeed);
+    document.getElementById("btn-import-mm")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
+    document.getElementById("btn-import-mm-footer")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
     document.getElementById("btn-update-app")?.addEventListener("click", updateAppFromInside);
     document.getElementById("btn-update-app-footer")?.addEventListener("click", updateAppFromInside);
     checkForAppUpdate();
