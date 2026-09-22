@@ -3,43 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f1419" />
+  <meta name="theme-color" content="#F2F2F7" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Vida" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">◈</span>
-        <div>
-          <h1>Vida</h1>
-          <p class="tagline">Hábitos · Finanzas · Proyectos</p>
-        </div>
+        <h1>Vida</h1>
       </div>
-      <nav class="tabs" role="tablist" aria-label="Módulos">
-        <button class="tab active" data-tab="habitos" role="tab" aria-selected="true">Hábitos</button>
-        <button class="tab" data-tab="finanzas" role="tab" aria-selected="false">Finanzas</button>
-        <button class="tab" data-tab="proyectos" role="tab" aria-selected="false">Proyectos</button>
-      </nav>
       <div class="header-actions">
-        <button type="button" id="btn-sync" class="btn-primary btn-sync-main">↻ Sincronizar</button>
-        <button type="button" id="btn-update-app" class="btn-ghost btn-sm" title="Descargar la última versión">Actualizar app</button>
-        <button type="button" id="btn-export-backup" class="btn-ghost btn-sm" title="Descargar todos tus datos">Exportar respaldo</button>
-        <button type="button" id="btn-import-backup" class="btn-ghost btn-sm" title="Importar un respaldo de Vida">Importar respaldo</button>
+        <button type="button" id="btn-sync" class="btn-primary btn-sync-main" title="Sincronizar">↻ Sync</button>
+        <button type="button" id="btn-more" class="btn-ghost btn-sm" aria-haspopup="dialog" aria-controls="more-sheet" title="Más opciones">Más</button>
         <input type="file" id="backup-file-input" class="hidden" accept="application/json,.json" />
-        <button type="button" id="btn-wipe-seed" class="btn-ghost btn-sm" title="Eliminar datos de ejemplo">Borrar datos de ejemplo</button>
       </div>
     </header>
 
@@ -54,7 +39,7 @@
       <section id="panel-habitos" class="panel active" role="tabpanel">
         <div class="panel-toolbar">
           <h2>Hábitos</h2>
-          <button type="button" id="btn-new-habit" class="btn-primary">+ Nuevo hábito</button>
+          <button type="button" id="btn-new-habit" class="btn-primary">+</button>
         </div>
         <div class="habitos-layout">
           <aside class="habit-list-card card">
@@ -105,19 +90,11 @@
               <span class="sr-only">Mes</span>
               <input type="month" id="fin-month" />
             </label>
-            <button type="button" id="btn-import-mm" class="btn-ghost">Importar Money Manager</button>
-            <button type="button" id="btn-new-tx" class="btn-primary">+ Movimiento</button>
+            <button type="button" id="btn-import-mm" class="btn-ghost btn-sm">Importar MM</button>
+            <button type="button" id="btn-new-tx" class="btn-primary">+</button>
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
-        <div class="card cuentas-section">
-          <div class="card-head">
-            <h3>Cuentas</h3>
-            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
-          </div>
-          <p id="accounts-total" class="accounts-total"></p>
-          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
-        </div>
         <div class="fin-dashboard">
           <div class="stat-card card balance">
             <span class="stat-label" id="fin-balance-label">Balance del mes</span>
@@ -135,6 +112,14 @@
             <span class="stat-label">Total que te deben</span>
             <strong id="fin-loans-total" class="stat-value">$0.00</strong>
           </div>
+        </div>
+        <div class="card cuentas-section">
+          <div class="card-head">
+            <h3>Cuentas</h3>
+            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
+          </div>
+          <p id="accounts-total" class="accounts-total"></p>
+          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
         </div>
         <div class="card loans-section">
           <div class="card-head">
@@ -174,7 +159,7 @@
       <section id="panel-proyectos" class="panel" role="tabpanel" hidden>
         <div class="panel-toolbar">
           <h2>Proyectos</h2>
-          <button type="button" id="btn-new-project" class="btn-primary">+ Nuevo proyecto</button>
+          <button type="button" id="btn-new-project" class="btn-primary">+</button>
         </div>
         <div class="proyectos-layout">
           <aside class="card">
@@ -231,6 +216,41 @@
       <button type="button" id="btn-update-app-footer" class="btn-primary btn-sm">Actualizar app</button>
       <span id="app-version-label" class="muted app-version-label"></span>
     </footer>
+
+    <nav class="tabs tab-bar" role="tablist" aria-label="Módulos">
+      <button class="tab active" data-tab="habitos" role="tab" aria-selected="true">
+        <span class="tab-icon" aria-hidden="true">✓</span>
+        <span class="tab-label">Hábitos</span>
+      </button>
+      <button class="tab" data-tab="finanzas" role="tab" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">$</span>
+        <span class="tab-label">Finanzas</span>
+      </button>
+      <button class="tab" data-tab="proyectos" role="tab" aria-selected="false">
+        <span class="tab-icon" aria-hidden="true">▣</span>
+        <span class="tab-label">Proyectos</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Más sheet -->
+  <div id="more-sheet" class="modal more-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="more-sheet-title">
+    <div class="modal-backdrop" data-more-close></div>
+    <div class="modal-box more-sheet-box">
+      <div class="modal-header">
+        <h3 id="more-sheet-title">Más</h3>
+        <button type="button" class="btn-icon" data-more-close aria-label="Cerrar">×</button>
+      </div>
+      <div class="modal-body more-sheet-actions">
+        <button type="button" id="btn-update-app" class="more-action">Actualizar app</button>
+        <button type="button" id="btn-export-backup" class="more-action">Exportar respaldo</button>
+        <button type="button" id="btn-import-backup" class="more-action">Importar respaldo</button>
+        <button type="button" id="btn-wipe-seed" class="more-action more-action-danger">Borrar datos de ejemplo</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost btn-block" data-more-close>Cancelar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal -->
@@ -248,7 +268,6 @@
       </div>
     </div>
   </div>
-
 
   <!-- Sync modal -->
   <div id="sync-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sync-modal-title">

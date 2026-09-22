@@ -7,9 +7,13 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f1419",
-  "theme_color": "#0f1419",
-  "categories": ["productivity", "finance", "lifestyle"],
+  "background_color": "#F2F2F7",
+  "theme_color": "#F2F2F7",
+  "categories": [
+    "productivity",
+    "finance",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.6";
+  const APP_VERSION = "1.11.0";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -664,7 +664,32 @@
   function forceCloseAllModals() {
     document.getElementById("modal")?.classList.add("hidden");
     document.getElementById("sync-modal")?.classList.add("hidden");
+    document.getElementById("more-sheet")?.classList.add("hidden");
     modalOnSubmit = null;
+  }
+
+  function openMoreSheet() {
+    document.getElementById("more-sheet")?.classList.remove("hidden");
+  }
+  function closeMoreSheet() {
+    document.getElementById("more-sheet")?.classList.add("hidden");
+  }
+  function initMoreMenu() {
+    const sheet = document.getElementById("more-sheet");
+    if (!sheet) return;
+    document.getElementById("btn-more")?.addEventListener("click", openMoreSheet);
+    sheet.querySelectorAll("[data-more-close]").forEach((el) => {
+      el.addEventListener("click", closeMoreSheet);
+    });
+    ["btn-update-app", "btn-export-backup", "btn-import-backup", "btn-wipe-seed"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("click", () => {
+        // keep import flow open until file picked; others close sheet
+        if (id !== "btn-import-backup") closeMoreSheet();
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sheet && !sheet.classList.contains("hidden")) closeMoreSheet();
+    });
   }
 
   // ---------- Tabs ----------
@@ -2910,6 +2935,7 @@
     input?.addEventListener("change", async () => {
       await importBackupFile(input.files && input.files[0]);
       input.value = "";
+      closeMoreSheet();
     });
   }
 
@@ -3225,6 +3251,7 @@
     ensureState();
     initTabs();
     initModal();
+    initMoreMenu();
     initHabitos();
     initFinanzas();
     initProyectos();
