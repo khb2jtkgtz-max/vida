@@ -1,12 +1,11 @@
-/* Vida service worker — cache-first for static assets; offline-ready */
-const CACHE = "vida-static-v20";
+/* Vida service worker — network-first shell; offline fallback */
+const CACHE = "vida-static-v21";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./version.json",
   "./data/mm-import.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -47,40 +46,40 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   if (url.origin !== self.location.origin) return;
 
-  // Always network for version check so the app can detect updates
-  if (url.pathname.endsWith("/version.json") || url.pathname.endsWith("version.json")) {
+  // Always network for version + app shell so updates apply
+  const networkFirst = (
+    url.pathname.endsWith("version.json") ||
+    url.pathname.endsWith("/app.js") ||
+    url.pathname.endsWith("/index.html") ||
+    url.pathname.endsWith("/sw.js") ||
+    url.pathname.endsWith("/") ||
+    url.pathname.endsWith("/vida/") ||
+    url.pathname.endsWith("/vida")
+  );
+
+  if (networkFirst) {
     event.respondWith(
-      fetch(req, { cache: "no-store" }).catch(() => caches.match(req))
+      fetch(req, { cache: "no-store" }).then((res) => {
+        if (res && res.ok && !url.pathname.endsWith("version.json")) {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
     );
     return;
   }
 
   event.respondWith(
     caches.match(req).then((cached) => {
-      if (cached) {
-        // Stale-while-revalidate for HTML/JS/CSS
-        const isShell = /\.(html|js|css)$/.test(url.pathname) || url.pathname.endsWith("/");
-        if (isShell) {
-          fetch(req).then((res) => {
-            if (res && res.ok) {
-              caches.open(CACHE).then((cache) => cache.put(req, res.clone()));
-            }
-          }).catch(() => {});
-        }
-        return cached;
-      }
+      if (cached) return cached;
       return fetch(req).then((res) => {
         const copy = res.clone();
         if (res.ok) {
           caches.open(CACHE).then((cache) => cache.put(req, copy));
         }
         return res;
-      }).catch(() => {
-        if (req.mode === "navigate") {
-          return caches.match("./index.html");
-        }
-        return new Response("", { status: 503, statusText: "Offline" });
-      });
+      }).catch(() => new Response("", { status: 503, statusText: "Offline" }));
     })
   );
 });

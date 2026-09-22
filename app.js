@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.0";
+  const APP_VERSION = "1.10.1";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -3041,25 +3041,23 @@
     setBusy(true);
     toast("Buscando actualización…");
     try {
+      await clearAppCaches();
       if ("serviceWorker" in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
         for (const reg of regs) {
-          try { await reg.update(); } catch (_) {}
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
-          if (reg.active) {
-            reg.active.postMessage({ type: "CLEAR_CACHE" });
-          }
+          try {
+            if (reg.active) reg.active.postMessage({ type: "CLEAR_CACHE" });
+          } catch (_) {}
+          try { await reg.unregister(); } catch (_) {}
         }
       }
       await clearAppCaches();
-      // Small delay so SW can claim
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 300));
       toast("App actualizada. Recargando…");
       const url = new URL(location.href);
-      url.searchParams.set("v", APP_VERSION + "-" + Date.now());
-      location.replace(url.toString());
+      url.searchParams.set("v", Date.now().toString());
+      url.searchParams.delete("utm_source");
+      location.replace(url.pathname + url.search + url.hash);
     } catch (e) {
       setBusy(false);
       toast("No se pudo actualizar: " + (e.message || e));
