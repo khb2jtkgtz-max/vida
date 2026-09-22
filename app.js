@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.4";
+  const APP_VERSION = "1.9.5";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
@@ -594,6 +594,12 @@
 
   function closeModal() {
     document.getElementById("modal").classList.add("hidden");
+    modalOnSubmit = null;
+  }
+
+  function forceCloseAllModals() {
+    document.getElementById("modal")?.classList.add("hidden");
+    document.getElementById("sync-modal")?.classList.add("hidden");
     modalOnSubmit = null;
   }
 
@@ -3011,6 +3017,7 @@
   }
 
   function boot() {
+    forceCloseAllModals();
     ensureState();
     initTabs();
     initModal();
