@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.2";
+  const APP_VERSION = "1.12.3";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -566,6 +566,38 @@
     if (!dueDate) return null;
     const daysLeft = daysBetween(today, dueDate);
     return { dueDate, daysLeft, overdue, debt };
+  }
+
+
+  function normalizePayUrl(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return null;
+    if (/^https?:\/\//i.test(s)) return s;
+    return "https://" + s;
+  }
+
+  /** Enlace para pagar: el de la cuenta, o uno típico según el banco/tarjeta. */
+  function accountPayUrl(acc) {
+    if (!acc) return null;
+    const custom = normalizePayUrl(acc.payUrl);
+    if (custom) return custom;
+    const key = ((acc.institution || "") + " " + (acc.name || "")).toLowerCase();
+    const presets = [
+      { re: /amex|american\s*express/, url: "https://www.americanexpress.com.mx/" },
+      { re: /like\s*u|liverpool/, url: "https://www.liverpool.com.mx/tienda/home" },
+      { re: /hey/, url: "https://www.hey.inc/" },
+      { re: /santander/, url: "https://www.santander.com.mx/" },
+      { re: /\bbbva\b|aqua/, url: "https://www.bbva.mx/" },
+      { re: /\bnu\b/, url: "https://nu.com.mx/" },
+      { re: /banorte/, url: "https://www.banorte.com/" },
+      { re: /banregio/, url: "https://www.banregio.com/" },
+      { re: /citibanamex|banamex/, url: "https://www.banamex.com/" },
+      { re: /hsbc/, url: "https://www.hsbc.com.mx/" }
+    ];
+    for (const p of presets) {
+      if (p.re.test(key)) return p.url;
+    }
+    return null;
   }
 
   function creditPaymentLabel(info) {
@@ -1213,6 +1245,7 @@
     if (!alerts.length) {
       strip.classList.add("hidden");
       strip.innerHTML = "";
+      strip.onclick = null;
       return;
     }
     strip.classList.remove("hidden");
@@ -1223,8 +1256,29 @@
         : info.daysLeft === 0
           ? `⏰ ${escapeHtml(acc.name)}: pago hoy · Deuda ${formatMXN(info.debt)}`
           : `⏰ ${escapeHtml(acc.name)}: pago en ${info.daysLeft} día${info.daysLeft === 1 ? "" : "s"} (${escapeHtml(formatDayMonth(info.dueDate))}) · Deuda ${formatMXN(info.debt)}`;
-      return `<div class="payment-alert ${kind}">${label}</div>`;
+      const url = accountPayUrl(acc);
+      const cta = url ? "Pagar →" : "Agregar enlace →";
+      const extra = url ? " has-pay-link" : " needs-pay-link";
+      return `<button type="button" class="payment-alert ${kind}${extra}" data-account-id="${escapeAttr(acc.id)}" data-pay-url="${escapeAttr(url || "")}">
+        <span class="payment-alert-text">${label}</span>
+        <span class="payment-alert-cta">${cta}</span>
+      </button>`;
     }).join("");
+    strip.onclick = (e) => {
+      const btn = e.target.closest(".payment-alert");
+      if (!btn || !strip.contains(btn)) return;
+      const url = (btn.dataset.payUrl || "").trim();
+      const id = btn.dataset.accountId;
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      const acc = state.accounts.find((a) => a.id === id);
+      if (acc) {
+        openAccountModal(acc);
+        toast("Pega el enlace de pago de tu banco o tarjeta");
+      }
+    };
   }
 
   function institutionPresetsHtml() {
@@ -1255,6 +1309,7 @@
     const cutoffDay = acc && acc.cutoffDay != null ? acc.cutoffDay : "";
     const paymentDueDay = acc && acc.paymentDueDay != null ? acc.paymentDueDay : "";
     const institution = acc && acc.institution ? acc.institution : "";
+    const payUrl = acc && acc.payUrl ? acc.payUrl : "";
     return `
       <div class="form-grid">
         ${institutionPresetsHtml()}
@@ -1288,6 +1343,11 @@
             </div>
           </div>
           <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
+          <div class="form-row">
+            <label for="f-acc-payurl">Enlace para pagar (opcional)</label>
+            <input id="f-acc-payurl" name="payUrl" type="url" inputmode="url" autocomplete="url" value="${escapeAttr(payUrl)}" placeholder="https://… de tu banco o tarjeta" />
+            <p class="field-hint">Si lo dejas vacío, usamos el sitio típico de Amex, Santander, Like U, Hey, etc. La alerta de pago abre este enlace.</p>
+          </div>
         </div>
         <div class="form-row">
           <label>Color</label>
@@ -1359,6 +1419,7 @@
         creditLimit: null,
         cutoffDay: null,
         paymentDueDay: null,
+        payUrl: null,
         nextStatementDate: acc && acc.nextStatementDate ? acc.nextStatementDate : null,
         nextPaymentDate: acc && acc.nextPaymentDate ? acc.nextPaymentDate : null
       };
@@ -1367,6 +1428,7 @@
         data.creditLimit = Number.isFinite(lim) && lim >= 0 ? lim : null;
         data.cutoffDay = clampDayOfMonth(fd.get("cutoffDay"));
         data.paymentDueDay = clampDayOfMonth(fd.get("paymentDueDay"));
+        data.payUrl = normalizePayUrl(fd.get("payUrl"));
       }
       if (acc) {
         Object.assign(acc, data);
