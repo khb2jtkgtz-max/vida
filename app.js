@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.2";
+  const APP_VERSION = "1.10.3";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -3066,40 +3066,57 @@
     await Promise.all(keys.map((k) => caches.delete(k)));
   }
 
-  async function updateAppFromInside() {
+  function freshAppUrl() {
+    const url = new URL(location.href);
+    url.searchParams.set("v", Date.now().toString());
+    url.searchParams.delete("utm_source");
+    return url.origin + url.pathname + "?" + url.searchParams.toString() + url.hash;
+  }
+
+  async function updateAppFromInside(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
     const btn = document.getElementById("btn-update-app");
     const btn2 = document.getElementById("btn-update-app-footer");
+    const btn3 = document.getElementById("btn-update-banner");
     const setBusy = (busy) => {
-      [btn, btn2].forEach((b) => {
+      [btn, btn2, btn3].forEach((b) => {
         if (!b) return;
         b.disabled = busy;
-        b.textContent = busy ? "Actualizando…" : (b.id === "btn-update-app-footer" ? "Actualizar app" : "Actualizar app");
+        if (b.tagName === "BUTTON" || b.tagName === "A") {
+          if (busy) b.setAttribute("aria-busy", "true");
+          else b.removeAttribute("aria-busy");
+        }
+        if (b.tagName === "BUTTON") {
+          const id = b.id || "";
+          b.textContent = busy ? "Actualizando…" : (id === "btn-update-banner" ? "Actualizar ahora" : "Actualizar app");
+        }
       });
     };
     setBusy(true);
-    toast("Buscando actualización…");
+    toast("Actualizando…");
+    const go = () => {
+      const next = freshAppUrl();
+      try { location.replace(next); } catch (_) {}
+      setTimeout(() => { location.href = next; }, 50);
+    };
+    const withTimeout = (p, ms) => Promise.race([
+      p.catch(() => {}),
+      new Promise((r) => setTimeout(r, ms))
+    ]);
     try {
-      await clearAppCaches();
+      await withTimeout(clearAppCaches(), 1500);
       if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
+        const regs = await withTimeout(navigator.serviceWorker.getRegistrations(), 1500) || [];
         for (const reg of regs) {
-          try {
-            if (reg.active) reg.active.postMessage({ type: "CLEAR_CACHE" });
-          } catch (_) {}
-          try { await reg.unregister(); } catch (_) {}
+          try { if (reg.active) reg.active.postMessage({ type: "CLEAR_CACHE" }); } catch (_) {}
+          try { await withTimeout(reg.unregister(), 800); } catch (_) {}
         }
       }
-      await clearAppCaches();
-      await new Promise((r) => setTimeout(r, 300));
-      toast("App actualizada. Recargando…");
-      const url = new URL(location.href);
-      url.searchParams.set("v", Date.now().toString());
-      url.searchParams.delete("utm_source");
-      location.replace(url.pathname + url.search + url.hash);
-    } catch (e) {
-      setBusy(false);
-      toast("No se pudo actualizar: " + (e.message || e));
-    }
+      await withTimeout(clearAppCaches(), 800);
+    } catch (_) {}
+    go();
+    // If navigation is blocked (some iOS PWAs), unlock UI after a moment
+    setTimeout(() => setBusy(false), 2500);
   }
 
   async function checkForAppUpdate() {
@@ -3110,12 +3127,16 @@
       banner = document.createElement("div");
       banner.id = "update-banner";
       banner.className = "update-banner";
-      banner.innerHTML = '<span>Hay una versión nueva de Vida.</span><button type="button" class="btn-primary btn-sm" id="btn-update-banner">Actualizar ahora</button>';
+      banner.innerHTML = '<span>Hay una versión nueva de Vida.</span><a class="btn-primary btn-sm" id="btn-update-banner" href="./?v=update">Actualizar ahora</a>';
       const header = document.querySelector(".app-header");
       if (header && header.parentNode) {
         header.parentNode.insertBefore(banner, header.nextSibling);
       }
-      banner.querySelector("#btn-update-banner")?.addEventListener("click", updateAppFromInside);
+      const bump = banner.querySelector("#btn-update-banner");
+      if (bump) {
+        bump.setAttribute("href", freshAppUrl());
+        bump.addEventListener("click", updateAppFromInside);
+      }
     }
     if (!navigator.onLine) return;
     try {
@@ -3124,6 +3145,8 @@
       const data = await res.json();
       if (data && data.version && data.version !== APP_VERSION) {
         banner.classList.add("is-visible");
+        const bump = document.getElementById("btn-update-banner");
+        if (bump) bump.setAttribute("href", freshAppUrl());
       } else {
         banner.classList.remove("is-visible");
       }

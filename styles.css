@@ -1249,6 +1249,12 @@ a { color: var(--primary); }
 }
 .update-banner.is-visible { display: flex; }
 .update-banner .btn-primary { margin-left: auto; }
+.update-banner a.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+}
 
 /* Préstamos por cobrar */
 .fin-dashboard { grid-template-columns: repeat(4, 1fr); }
