@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.0";
+  const APP_VERSION = "1.12.1";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2697,9 +2697,16 @@
     }
   }
 
-  function disconnectSync(opts) {
+  async function disconnectSync(opts) {
     const ask = !opts || opts.confirm !== false;
-    if (ask && !confirm("¿Desconectar este código? Los datos de este equipo se quedan aquí; luego puedes pegar el código del otro.")) return;
+    if (ask) {
+      const ok = await confirmAction(
+        "Desconectar sincronización",
+        "¿Desconectar este código? Los datos de este equipo se quedan aquí; luego puedes pegar el código del otro.",
+        "Desconectar"
+      );
+      if (!ok) return;
+    }
     syncId = null;
     localStorage.removeItem(SYNC_ID_KEY);
     clearTimeout(syncTimer);
@@ -2803,7 +2810,7 @@
       e.target.select();
     });
     document.getElementById("btn-sync-now")?.addEventListener("click", () => syncNow({ quiet: false }));
-    document.getElementById("btn-sync-disconnect")?.addEventListener("click", () => disconnectSync({ confirm: false }));
+    document.getElementById("btn-sync-disconnect")?.addEventListener("click", () => disconnectSync());
 
     window.addEventListener("online", () => {
       setSyncStatus(syncId ? "pending" : "idle");
@@ -2865,7 +2872,12 @@
   }
 
   async function importMoneyManager() {
-    if (!confirm("¿Importar todas las cuentas, categorías y 91 movimientos de Money Manager? Se quitarán solo las finanzas de ejemplo y una importación MM anterior.")) return;
+    const okMm = await confirmAction(
+      "Importar Money Manager",
+      "¿Importar todas las cuentas, categorías y 91 movimientos de Money Manager? Se quitarán solo las finanzas de ejemplo y una importación MM anterior.",
+      "Importar"
+    );
+    if (!okMm) return;
     const button = document.getElementById("btn-import-mm");
     if (button) button.disabled = true;
     try {
@@ -2907,7 +2919,12 @@
       const parsed = JSON.parse(await file.text());
       const incoming = parsed && parsed.state ? parsed.state : parsed;
       if (!incoming || typeof incoming !== "object") throw new Error("JSON inválido");
-      if (!confirm("¿Importar este respaldo y unirlo con los datos actuales? No se borrarán hábitos, movimientos ni proyectos existentes.")) return;
+      const okBk = await confirmAction(
+        "Importar respaldo",
+        "¿Importar este respaldo y unirlo con los datos actuales? No se borrarán hábitos, movimientos ni proyectos existentes.",
+        "Importar"
+      );
+      if (!okBk) return;
       const merged = mergeStates(state, incoming);
       merged.updatedAt = Date.now();
       state = merged;
