@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.3";
+  const APP_VERSION = "1.12.4";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -623,11 +623,13 @@
     toast._t = setTimeout(() => el.classList.add("hidden"), 2600);
   }
 
-  function openModal(title, html, onSubmit) {
+  function openModal(title, html, onSubmit, opts) {
     document.getElementById("modal-title").textContent = title;
     const form = document.getElementById("modal-form");
     form.innerHTML = html;
     modalOnSubmit = onSubmit;
+    const submitBtn = document.querySelector("#modal button[type=\"submit\"]");
+    if (submitBtn) submitBtn.textContent = (opts && opts.submitLabel) || "Guardar";
     document.getElementById("modal").classList.remove("hidden");
     const first = form.querySelector("input, select, textarea");
     if (first) setTimeout(() => first.focus(), 50);
@@ -1256,29 +1258,130 @@
         : info.daysLeft === 0
           ? `⏰ ${escapeHtml(acc.name)}: pago hoy · Deuda ${formatMXN(info.debt)}`
           : `⏰ ${escapeHtml(acc.name)}: pago en ${info.daysLeft} día${info.daysLeft === 1 ? "" : "s"} (${escapeHtml(formatDayMonth(info.dueDate))}) · Deuda ${formatMXN(info.debt)}`;
-      const url = accountPayUrl(acc);
-      const cta = url ? "Pagar →" : "Agregar enlace →";
-      const extra = url ? " has-pay-link" : " needs-pay-link";
-      return `<button type="button" class="payment-alert ${kind}${extra}" data-account-id="${escapeAttr(acc.id)}" data-pay-url="${escapeAttr(url || "")}">
+      return `<button type="button" class="payment-alert ${kind} has-pay-link" data-account-id="${escapeAttr(acc.id)}">
         <span class="payment-alert-text">${label}</span>
-        <span class="payment-alert-cta">${cta}</span>
+        <span class="payment-alert-cta">Pagar →</span>
       </button>`;
     }).join("");
     strip.onclick = (e) => {
       const btn = e.target.closest(".payment-alert");
       if (!btn || !strip.contains(btn)) return;
-      const url = (btn.dataset.payUrl || "").trim();
-      const id = btn.dataset.accountId;
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-        return;
-      }
-      const acc = state.accounts.find((a) => a.id === id);
-      if (acc) {
-        openAccountModal(acc);
-        toast("Pega el enlace de pago de tu banco o tarjeta");
-      }
+      const acc = state.accounts.find((a) => a.id === btn.dataset.accountId);
+      if (acc) openCreditPayModal(acc);
     };
+  }
+
+  function fundingAccountsForPay(excludeId) {
+    return state.accounts.filter((a) => a.id !== excludeId && a.type !== "credito");
+  }
+
+  function ensurePayCategories() {
+    if (!state.categories.gasto.includes("Pago de tarjeta")) {
+      state.categories.gasto.push("Pago de tarjeta");
+    }
+    if (!state.categories.ingreso.includes("Abono a tarjeta")) {
+      state.categories.ingreso.push("Abono a tarjeta");
+    }
+  }
+
+  function openCreditPayModal(acc) {
+    if (!acc || acc.type !== "credito") return;
+    const debt = creditDebtAmount(acc);
+    if (!(debt > 0)) {
+      toast("Esta tarjeta no tiene deuda registrada");
+      return;
+    }
+    const funders = fundingAccountsForPay(acc.id);
+    if (!funders.length) {
+      toast("Necesitas una cuenta de débito o efectivo para pagar desde ella");
+      openAccountModal(null);
+      return;
+    }
+    ensurePayCategories();
+    const defaultAmt = Math.round(debt * 100) / 100;
+    const opts = funders.map((a) => {
+      const bal = accountBalance(a.id);
+      return `<option value="${escapeAttr(a.id)}">${escapeHtml((a.icon || "") + " " + a.name)} · ${formatMXN(bal)}</option>`;
+    }).join("");
+    const html = `
+      <div class="form-grid">
+        <p class="field-hint">Registras el pago dentro de Vida: sale de tu cuenta y baja la deuda de <strong>${escapeHtml(acc.name)}</strong>.</p>
+        <div class="form-row">
+          <label>Deuda actual</label>
+          <strong class="stat-value" style="font-size:1.25rem;color:var(--gasto)">${formatMXN(debt)}</strong>
+        </div>
+        <div class="form-row">
+          <label for="f-pay-amount">Monto a pagar (MXN)</label>
+          <input id="f-pay-amount" name="amount" type="number" step="0.01" min="0.01" required value="${escapeAttr(String(defaultAmt))}" />
+          <div class="toolbar-right" style="margin-top:0.35rem;gap:0.35rem">
+            <button type="button" class="btn-ghost btn-sm" id="f-pay-full">Toda la deuda</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="f-pay-from">Pagar desde</label>
+          <select id="f-pay-from" name="fromAccountId" required>${opts}</select>
+        </div>
+        <div class="form-row">
+          <label for="f-pay-date">Fecha</label>
+          <input id="f-pay-date" name="date" type="date" required value="${escapeAttr(isoDate(new Date()))}" />
+        </div>
+        <div class="form-row">
+          <label for="f-pay-note">Nota (opcional)</label>
+          <input id="f-pay-note" name="note" maxlength="120" placeholder="Ej. pago quincena" />
+        </div>
+      </div>`;
+    openModal("Pagar " + acc.name, html, (fd) => {
+      const amount = parseFloat(fd.get("amount"));
+      if (!(amount > 0)) {
+        toast("Monto inválido");
+        return false;
+      }
+      const fromId = fd.get("fromAccountId");
+      if (!fromId || !accountById(fromId) || fromId === acc.id) {
+        toast("Elige la cuenta de origen");
+        return false;
+      }
+      const date = fd.get("date") || isoDate(new Date());
+      const note = (fd.get("note") || "").trim();
+      const pairId = uid();
+      const noteGasto = note ? `Pago ${acc.name}: ${note}` : `Pago ${acc.name}`;
+      const noteIngreso = note ? `Abono: ${note}` : `Abono desde ${accountById(fromId).name}`;
+      state.transactions.push({
+        id: uid(),
+        type: "gasto",
+        amount,
+        category: "Pago de tarjeta",
+        date,
+        note: noteGasto,
+        accountId: fromId,
+        paymentMethod: "Transferencia",
+        _creditPayPair: pairId,
+        _creditPayRole: "from"
+      });
+      state.transactions.push({
+        id: uid(),
+        type: "ingreso",
+        amount,
+        category: "Abono a tarjeta",
+        date,
+        note: noteIngreso,
+        accountId: acc.id,
+        paymentMethod: "Transferencia",
+        _creditPayPair: pairId,
+        _creditPayRole: "to"
+      });
+      saveState();
+      const ym = date.slice(0, 7);
+      const monthEl = document.getElementById("fin-month");
+      if (monthEl) monthEl.value = ym;
+      renderFinanzas();
+      toast(`Pago de ${formatMXN(amount)} a ${acc.name}`);
+      return true;
+    }, { submitLabel: "Registrar pago" });
+    document.getElementById("f-pay-full")?.addEventListener("click", () => {
+      const inp = document.getElementById("f-pay-amount");
+      if (inp) inp.value = String(defaultAmt);
+    });
   }
 
   function institutionPresetsHtml() {
@@ -1309,7 +1412,6 @@
     const cutoffDay = acc && acc.cutoffDay != null ? acc.cutoffDay : "";
     const paymentDueDay = acc && acc.paymentDueDay != null ? acc.paymentDueDay : "";
     const institution = acc && acc.institution ? acc.institution : "";
-    const payUrl = acc && acc.payUrl ? acc.payUrl : "";
     return `
       <div class="form-grid">
         ${institutionPresetsHtml()}
@@ -1343,11 +1445,6 @@
             </div>
           </div>
           <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
-          <div class="form-row">
-            <label for="f-acc-payurl">Enlace para pagar (opcional)</label>
-            <input id="f-acc-payurl" name="payUrl" type="url" inputmode="url" autocomplete="url" value="${escapeAttr(payUrl)}" placeholder="https://… de tu banco o tarjeta" />
-            <p class="field-hint">Si lo dejas vacío, usamos el sitio típico de Amex, Santander, Like U, Hey, etc. La alerta de pago abre este enlace.</p>
-          </div>
         </div>
         <div class="form-row">
           <label>Color</label>
