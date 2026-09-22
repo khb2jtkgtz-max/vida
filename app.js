@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.5";
+  const APP_VERSION = "1.10.6";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2616,6 +2616,7 @@
     const id = shortSyncCode();
     syncId = id;
     localStorage.setItem(SYNC_ID_KEY, id);
+    startLiveSync();
     state.updatedAt = Date.now();
     saveState(); // will schedule push
     setSyncStatus("pending");
@@ -2639,6 +2640,7 @@
     }
     syncId = id;
     localStorage.setItem(SYNC_ID_KEY, id);
+    startLiveSync();
     setSyncStatus("pending");
     updateSyncModal();
     try {
