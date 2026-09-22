@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.8";
+  const APP_VERSION = "1.12.9";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -843,36 +843,56 @@
       if (mark === "miss") miss++;
       if (mark === "bad") bad++;
     }
-    // streak: consecutive done/avoid from today backwards (solo días programados en periodo)
+    // Racha actual: desde hoy hacia atrás, solo días programados.
+    // Buen: solo cuenta "done". Mal ("sin caer"): solo cuenta "miss" (evitado).
+    // Hoy sin marca aún no rompe ni suma (gracia del día en curso).
     if (habit) {
-      let cursor = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate());
-      let guard = 0;
-      while (guard++ < 800) {
-        const ds = isoDate(cursor);
-        if (habit.startDate && ds < habit.startDate) break;
-        if (habit.endDate && ds > habit.endDate) {
-          cursor.setDate(cursor.getDate() - 1);
-          continue;
-        }
-        if (!isHabitScheduled(habit, ds)) {
-          cursor.setDate(cursor.getDate() - 1);
-          continue;
-        }
-        const mark = getMark(habitId, ds);
-        if (habit.type === "buen") {
-          if (mark === "done") streak++;
-          else break;
-        } else {
-          if (mark === "bad") break;
-          if (ds > today()) break;
-          if (ds === today() && !mark) break;
-          streak++;
-        }
-        cursor.setDate(cursor.getDate() - 1);
-        if (streak > 365) break;
-      }
+      streak = currentHabitStreak(habit);
     }
     return { done, miss, bad, streak, limit, scheduled };
+  }
+
+  function currentHabitStreak(habit) {
+    if (!habit) return 0;
+    let streak = 0;
+    const todayD = new Date();
+    let cursor = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate());
+    const todayStr = isoDate(cursor);
+    for (let guard = 0; guard < 800; guard++) {
+      const ds = isoDate(cursor);
+      if (habit.startDate && ds < habit.startDate) break;
+      if (habit.endDate && ds > habit.endDate) {
+        cursor.setDate(cursor.getDate() - 1);
+        continue;
+      }
+      if (!isHabitScheduled(habit, ds)) {
+        cursor.setDate(cursor.getDate() - 1);
+        continue;
+      }
+      const mark = getMark(habit.id, ds);
+      const isToday = ds === todayStr;
+
+      if (habit.type === "mal") {
+        if (mark === "bad") break;
+        if (isToday && !mark) {
+          cursor.setDate(cursor.getDate() - 1);
+          continue;
+        }
+        // Solo días marcados como evitados cuentan; vacío en el pasado corta la racha
+        if (mark === "miss") streak++;
+        else break;
+      } else {
+        if (isToday && !mark) {
+          cursor.setDate(cursor.getDate() - 1);
+          continue;
+        }
+        if (mark === "done") streak++;
+        else break;
+      }
+      cursor.setDate(cursor.getDate() - 1);
+      if (streak >= 365) break;
+    }
+    return streak;
   }
 
   function renderHabitList() {
