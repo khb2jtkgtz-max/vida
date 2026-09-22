@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.6";
+  const APP_VERSION = "1.12.7";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -422,10 +422,22 @@
     return w.map((i) => DOW_SHORT[i]).join(" ");
   }
 
-  function toggleMissedDay(bag, dateStr) {
+  function missedTombKey(entityId, dateStr) {
+    return String(entityId || "") + ":" + String(dateStr || "");
+  }
+
+  function toggleMissedDay(bag, dateStr, entityId) {
     if (!bag || typeof bag !== "object") return;
-    if (bag[dateStr]) delete bag[dateStr];
-    else bag[dateStr] = true;
+    const tomb = missedTombKey(entityId, dateStr);
+    if (bag[dateStr]) {
+      delete bag[dateStr];
+      if (entityId) markDeleted("missedDays", tomb);
+    } else {
+      bag[dateStr] = true;
+      if (entityId && state.deleted && state.deleted.missedDays && state.deleted.missedDays[tomb]) {
+        delete state.deleted.missedDays[tomb];
+      }
+    }
   }
 
   function countMissedInMonth(bag, year, month) {
@@ -783,8 +795,15 @@
 
   function setMark(habitId, dateStr, status) {
     const k = habitMarkKey(habitId, dateStr);
-    if (!status) delete state.habitMarks[k];
-    else state.habitMarks[k] = status;
+    if (!status) {
+      delete state.habitMarks[k];
+      markDeleted("habitMarks", k);
+    } else {
+      state.habitMarks[k] = status;
+      if (state.deleted && state.deleted.habitMarks && state.deleted.habitMarks[k]) {
+        delete state.deleted.habitMarks[k];
+      }
+    }
     saveState();
   }
 
@@ -1130,6 +1149,7 @@
         endDate,
         weekdays
       };
+      data.updatedAt = Date.now();
       if (habit) {
         Object.assign(habit, data);
         toast("Hábito actualizado");
@@ -2104,7 +2124,7 @@
       btn.innerHTML = `<span>${d}</span>${missed ? '<span class="mark">✕</span>' : ""}`;
       if (scheduled) {
         btn.addEventListener("click", () => {
-          toggleMissedDay(ensureMissBag(entity), ds);
+          toggleMissedDay(ensureMissBag(entity), ds, entity.id);
           saveState();
           renderProyectos();
         });
@@ -2366,6 +2386,7 @@
         status: fd.get("status") || "activo",
         workdays
       };
+      data.updatedAt = Date.now();
       if (p) {
         Object.assign(p, data);
         if (!p.missedDays) p.missedDays = {};
@@ -2416,15 +2437,18 @@
       const end = fd.get("end");
       if (end < start) { toast("La fecha fin debe ser ≥ inicio"); return false; }
       const workdays = readWeekdaysFromForm(fd, "workdays");
+      const nowTs = Date.now();
       if (task) {
         task.name = name; task.start = start; task.end = end; task.workdays = workdays;
+        task.updatedAt = nowTs;
         if (!task.missedDays) task.missedDays = {};
         toast("Tarea actualizada");
       } else {
         if (!project.tasks) project.tasks = [];
-        project.tasks.push({ id: uid(), name, start, end, done: false, workdays, missedDays: {} });
+        project.tasks.push({ id: uid(), name, start, end, done: false, workdays, missedDays: {}, updatedAt: nowTs });
         toast("Tarea creada");
       }
+      project.updatedAt = nowTs;
       saveState();
       renderProyectos();
       return true;
@@ -2644,7 +2668,7 @@
   }
 
   function mergeDeletedMaps(a, b) {
-    const kinds = ["habits", "projects", "accounts", "transactions", "loans", "tasks"];
+    const kinds = ["habits", "projects", "accounts", "transactions", "loans", "tasks", "habitMarks", "missedDays"];
     const out = {};
     kinds.forEach((k) => {
       out[k] = {};
@@ -2657,15 +2681,31 @@
     return out;
   }
 
-  function mergeHabitMarks(a, b) {
+  function mergeHabitMarks(a, b, tombstones) {
     // habitMarks are FLAT keys "habitId:YYYY-MM-DD" -> "done"|"miss"|"bad"
+    // Tombstones keep cleared marks from resurrecting via sync.
+    const dead = tombstones || {};
     const out = {};
     const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
     keys.forEach((k) => {
-      const bv = normalizeMarkValue(b && b[k]);
+      if (dead[k]) return;
       const av = normalizeMarkValue(a && a[k]);
-      const val = bv != null ? bv : av;
+      const bv = normalizeMarkValue(b && b[k]);
+      // Prefer local when set (this device just edited); otherwise take remote.
+      const val = av != null ? av : bv;
       if (val) out[k] = val;
+    });
+    return out;
+  }
+
+  function mergeMissedDays(a, b, entityId, tombstones) {
+    const dead = tombstones || {};
+    const out = {};
+    const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+    keys.forEach((ds) => {
+      if (!ds) return;
+      if (dead[missedTombKey(entityId, ds)]) return;
+      if ((a && a[ds]) || (b && b[ds])) out[ds] = true;
     });
     return out;
   }
@@ -2673,12 +2713,22 @@
   function mergeById(listA, listB, tombstones) {
     const map = new Map();
     const dead = tombstones || {};
-    (listA || []).forEach((item) => { if (item && item.id) map.set(item.id, item); });
-    (listB || []).forEach((item) => {
-      if (!item || !item.id) return;
+    function put(item) {
+      if (!item || !item.id || dead[item.id]) return;
       const prev = map.get(item.id);
-      map.set(item.id, prev ? { ...prev, ...item } : item);
-    });
+      if (!prev) {
+        map.set(item.id, item);
+        return;
+      }
+      const ta = Number(prev.updatedAt || 0);
+      const tb = Number(item.updatedAt || 0);
+      // Newer updatedAt wins field conflicts; missing timestamps keep a stable merge.
+      if (tb > ta) map.set(item.id, { ...prev, ...item });
+      else if (ta > tb) map.set(item.id, { ...item, ...prev });
+      else map.set(item.id, { ...item, ...prev }); // tie: prefer first-seen (local if local listed first)
+    }
+    (listA || []).forEach(put);
+    (listB || []).forEach(put);
     return Array.from(map.values()).filter((item) => !dead[item.id]);
   }
 
@@ -2691,7 +2741,7 @@
       seeded: !!(L.seeded || R.seeded),
       deleted,
       habits: mergeById(L.habits, R.habits, deleted.habits),
-      habitMarks: mergeHabitMarks(L.habitMarks, R.habitMarks),
+      habitMarks: mergeHabitMarks(L.habitMarks, R.habitMarks, deleted.habitMarks),
       categories: {
         ingreso: Array.from(new Set([...(L.categories && L.categories.ingreso || []), ...(R.categories && R.categories.ingreso || [])])),
         gasto: Array.from(new Set([...(L.categories && L.categories.gasto || []), ...(R.categories && R.categories.gasto || [])]))
@@ -2699,11 +2749,20 @@
       accounts: mergeById(L.accounts, R.accounts, deleted.accounts),
       transactions: mergeById(L.transactions, R.transactions, deleted.transactions),
       projects: mergeById(L.projects, R.projects, deleted.projects).map((p) => {
-        const other = (R.projects || []).find((x) => x.id === p.id) || (L.projects || []).find((x) => x.id === p.id);
-        if (!other) return p;
-        const base = { ...other, ...p };
-        base.tasks = mergeById(other.tasks || [], p.tasks || [], deleted.tasks);
-        base.missedDays = { ...(other.missedDays || {}), ...(p.missedDays || {}) };
+        const left = (L.projects || []).find((x) => x.id === p.id) || {};
+        const right = (R.projects || []).find((x) => x.id === p.id) || {};
+        const base = { ...p };
+        const leftTasks = left.tasks || [];
+        const rightTasks = right.tasks || [];
+        base.tasks = mergeById(leftTasks, rightTasks, deleted.tasks).map((task) => {
+          const lt = leftTasks.find((x) => x.id === task.id) || {};
+          const rt = rightTasks.find((x) => x.id === task.id) || {};
+          return {
+            ...task,
+            missedDays: mergeMissedDays(lt.missedDays, rt.missedDays, task.id, deleted.missedDays)
+          };
+        });
+        base.missedDays = mergeMissedDays(left.missedDays, right.missedDays, p.id, deleted.missedDays);
         return base;
       }),
       loans: mergeById(L.loans, R.loans, deleted.loans).map((loan) => {
