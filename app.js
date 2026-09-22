@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.6";
+  const APP_VERSION = "1.9.7";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
@@ -601,6 +601,56 @@
     modalOnSubmit = null;
   }
 
+
+  /** Confirmación dentro de la app (confirm() nativo falla en PWA iOS/Mac a veces). */
+  function confirmAction(title, message, confirmLabel) {
+    return new Promise((resolve) => {
+      const submitBtn = document.getElementById("modal-submit");
+      const prevLabel = submitBtn ? submitBtn.textContent : "Guardar";
+      const prevClass = submitBtn ? submitBtn.className : "btn-primary";
+      if (submitBtn) {
+        submitBtn.textContent = confirmLabel || "Eliminar";
+        submitBtn.className = "btn-danger";
+      }
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        if (submitBtn) {
+          submitBtn.textContent = prevLabel;
+          submitBtn.className = prevClass;
+        }
+        resolve(ok);
+      };
+      openModal(title || "Confirmar", `<p style="margin:0;line-height:1.45">${message}</p>`, () => {
+        finish(true);
+        return true;
+      });
+      // If user closes with Cancelar/backdrop/X, treat as false
+      const modal = document.getElementById("modal");
+      const onCloseClick = (e) => {
+        if (e.target.closest("[data-close]")) {
+          setTimeout(() => {
+            if (modal.classList.contains("hidden")) finish(false);
+          }, 0);
+        }
+      };
+      modal.addEventListener("click", onCloseClick);
+      const obs = new MutationObserver(() => {
+        if (modal.classList.contains("hidden") && !settled) {
+          finish(false);
+          obs.disconnect();
+          modal.removeEventListener("click", onCloseClick);
+        }
+        if (settled) {
+          obs.disconnect();
+          modal.removeEventListener("click", onCloseClick);
+        }
+      });
+      obs.observe(modal, { attributes: true, attributeFilter: ["class"] });
+    });
+  }
+
   function forceCloseAllModals() {
     document.getElementById("modal")?.classList.add("hidden");
     document.getElementById("sync-modal")?.classList.add("hidden");
@@ -1007,10 +1057,14 @@
       const h = state.habits.find((x) => x.id === selectedHabitId);
       if (h) openHabitModal(h);
     });
-    document.getElementById("btn-delete-habit").addEventListener("click", () => {
+    document.getElementById("btn-delete-habit").addEventListener("click", async () => {
       const h = state.habits.find((x) => x.id === selectedHabitId);
-      if (!h) return;
-      if (!confirm(`¿Eliminar el hábito «${h.name}» y sus marcas?`)) return;
+      if (!h) {
+        toast("Selecciona un hábito primero");
+        return;
+      }
+      const ok = await confirmAction("Eliminar hábito", `¿Eliminar el hábito «${escapeHtml(h.name)}» y sus marcas?`, "Eliminar");
+      if (!ok) return;
       markDeleted("habits", h.id);
       Object.keys(state.habitMarks).forEach((k) => {
         if (k.startsWith(h.id + ":")) delete state.habitMarks[k];
@@ -1020,6 +1074,9 @@
       saveState();
       renderHabitos();
       toast("Hábito eliminado");
+      if (syncId) {
+        try { await syncNow({ quiet: true }); } catch (_) {}
+      }
     });
     document.getElementById("cal-prev").addEventListener("click", () => {
       calMonth--;
@@ -1296,12 +1353,13 @@
       delWrap.style.marginTop = "0.75rem";
       delWrap.innerHTML = `<button type="button" class="btn-danger btn-sm" id="btn-delete-account">Eliminar cuenta</button>`;
       form.appendChild(delWrap);
-      delWrap.querySelector("#btn-delete-account").addEventListener("click", () => {
+      delWrap.querySelector("#btn-delete-account").addEventListener("click", async () => {
         if (state.accounts.length <= 1) {
           toast("Debes conservar al menos una cuenta");
           return;
         }
-        if (!confirm(`¿Eliminar la cuenta «${acc.name}»? Sus movimientos pasarán a Efectivo.`)) return;
+        const okDel = await confirmAction("Eliminar cuenta", `¿Eliminar la cuenta «${escapeHtml(acc.name)}»? Sus movimientos pasarán a Efectivo.`, "Eliminar");
+        if (!okDel) return;
         const fallback = state.accounts.find((a) => a.id !== acc.id && a.type === "efectivo")
           || state.accounts.find((a) => a.id !== acc.id);
         state.transactions.forEach((t) => {
@@ -1401,8 +1459,9 @@
             </div>
           `;
           li.querySelector("[data-edit]").addEventListener("click", () => openTxModal(t));
-          li.querySelector("[data-del]").addEventListener("click", () => {
-            if (!confirm("¿Eliminar este movimiento?")) return;
+          li.querySelector("[data-del]").addEventListener("click", async () => {
+            const okDel = await confirmAction("Eliminar movimiento", "¿Eliminar este movimiento?", "Eliminar");
+            if (!okDel) return;
             markDeleted("transactions", t.id);
             state.transactions = state.transactions.filter((x) => x.id !== t.id);
             saveState();
@@ -1477,8 +1536,9 @@
           <button type="button" class="btn-danger btn-sm" data-delete>Eliminar</button>
         </div>`;
       card.querySelector("[data-pay]").addEventListener("click", () => openLoanPaymentModal(loan));
-      card.querySelector("[data-delete]").addEventListener("click", () => {
-        if (!confirm(`¿Eliminar el préstamo de ${loan.person}? Los movimientos bancarios ya registrados no se borrarán.`)) return;
+      card.querySelector("[data-delete]").addEventListener("click", async () => {
+        const okDel = await confirmAction("Eliminar préstamo", `¿Eliminar el préstamo de ${escapeHtml(loan.person)}? Los movimientos bancarios ya registrados no se borrarán.`, "Eliminar");
+        if (!okDel) return;
         markDeleted("loans", loan.id);
         state.loans = state.loans.filter((x) => x.id !== loan.id);
         saveState(); renderFinanzas(); toast("Préstamo eliminado");
@@ -1885,8 +1945,9 @@
         renderProyectos();
       });
       li.querySelector("[data-edit]").addEventListener("click", () => openTaskModal(p, task));
-      li.querySelector("[data-del]").addEventListener("click", () => {
-        if (!confirm("¿Eliminar esta tarea?")) return;
+      li.querySelector("[data-del]").addEventListener("click", async () => {
+        const okDel = await confirmAction("Eliminar tarea", "¿Eliminar esta tarea?", "Eliminar");
+        if (!okDel) return;
         markDeleted("tasks", task.id);
         p.tasks = p.tasks.filter((t) => t.id !== task.id);
         saveState();
@@ -2153,16 +2214,20 @@
       const p = state.projects.find((x) => x.id === selectedProjectId);
       if (p) openProjectModal(p);
     });
-    document.getElementById("btn-delete-project").addEventListener("click", () => {
+    document.getElementById("btn-delete-project").addEventListener("click", async () => {
       const p = state.projects.find((x) => x.id === selectedProjectId);
       if (!p) return;
-      if (!confirm(`¿Eliminar el proyecto «${p.name}»?`)) return;
+      const ok = await confirmAction("Eliminar proyecto", `¿Eliminar el proyecto «${escapeHtml(p.name)}»?`, "Eliminar");
+      if (!ok) return;
       markDeleted("projects", p.id);
       state.projects = state.projects.filter((x) => x.id !== p.id);
       selectedProjectId = state.projects[0]?.id || null;
       saveState();
       renderProyectos();
       toast("Proyecto eliminado");
+      if (syncId) {
+        try { await syncNow({ quiet: true }); } catch (_) {}
+      }
     });
     document.getElementById("btn-new-task").addEventListener("click", () => {
       const p = state.projects.find((x) => x.id === selectedProjectId);
