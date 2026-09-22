@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.7";
+  const APP_VERSION = "1.9.8";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
@@ -2590,7 +2590,7 @@
       }
       await pushRemote(exportStateBlob());
       setSyncStatus("synced");
-      if (!quiet) toast("Hábitos y datos sincronizados");
+      if (!quiet) toast("Datos sincronizados. Guarda tu código por si reinstalas.");
     } catch (e) {
       setSyncStatus("error", e.message || String(e));
       if (!quiet) toast("Error al sincronizar: " + (e.message || e));
@@ -2610,7 +2610,7 @@
     try {
       await pushRemote(exportStateBlob());
       setSyncStatus("synced");
-      toast("Código creado. Cópialo en tu otro dispositivo.");
+      toast("Código creado. Guárdalo: con él recuperas todo si reinstalas.");
     } catch (e) {
       setSyncStatus("error", e.message || String(e));
       toast("Código creado en este dispositivo, pero falló la subida a la nube");
