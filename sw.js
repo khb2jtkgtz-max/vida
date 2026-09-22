@@ -1,5 +1,5 @@
 /* Vida service worker — cache-first for static assets; offline-ready */
-const CACHE = "vida-static-v15";
+const CACHE = "vida-static-v16";
 const ASSETS = [
   "./",
   "./index.html",

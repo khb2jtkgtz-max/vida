@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.5";
+  const APP_VERSION = "1.9.6";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
 
@@ -230,6 +230,10 @@
     if (!state.projects) state.projects = [];
     if (!Array.isArray(state.loans)) state.loans = [];
     if (!Array.isArray(state.accounts)) state.accounts = [];
+    if (!state.deleted || typeof state.deleted !== "object") state.deleted = {};
+    ["habits", "projects", "accounts", "transactions", "loans", "tasks"].forEach((k) => {
+      if (!state.deleted[k] || typeof state.deleted[k] !== "object") state.deleted[k] = {};
+    });
     migrateAccounts();
     migrateHabitsAndProjects();
     const repairedMarks = repairHabitMarksIn(state.habitMarks);
@@ -1007,6 +1011,7 @@
       const h = state.habits.find((x) => x.id === selectedHabitId);
       if (!h) return;
       if (!confirm(`¿Eliminar el hábito «${h.name}» y sus marcas?`)) return;
+      markDeleted("habits", h.id);
       Object.keys(state.habitMarks).forEach((k) => {
         if (k.startsWith(h.id + ":")) delete state.habitMarks[k];
       });
@@ -1302,6 +1307,7 @@
         state.transactions.forEach((t) => {
           if (t.accountId === acc.id) t.accountId = fallback.id;
         });
+        markDeleted("accounts", acc.id);
         state.accounts = state.accounts.filter((a) => a.id !== acc.id);
         saveState();
         closeModal();
@@ -1397,6 +1403,7 @@
           li.querySelector("[data-edit]").addEventListener("click", () => openTxModal(t));
           li.querySelector("[data-del]").addEventListener("click", () => {
             if (!confirm("¿Eliminar este movimiento?")) return;
+            markDeleted("transactions", t.id);
             state.transactions = state.transactions.filter((x) => x.id !== t.id);
             saveState();
             renderFinanzas();
@@ -1472,6 +1479,7 @@
       card.querySelector("[data-pay]").addEventListener("click", () => openLoanPaymentModal(loan));
       card.querySelector("[data-delete]").addEventListener("click", () => {
         if (!confirm(`¿Eliminar el préstamo de ${loan.person}? Los movimientos bancarios ya registrados no se borrarán.`)) return;
+        markDeleted("loans", loan.id);
         state.loans = state.loans.filter((x) => x.id !== loan.id);
         saveState(); renderFinanzas(); toast("Préstamo eliminado");
       });
@@ -1879,6 +1887,7 @@
       li.querySelector("[data-edit]").addEventListener("click", () => openTaskModal(p, task));
       li.querySelector("[data-del]").addEventListener("click", () => {
         if (!confirm("¿Eliminar esta tarea?")) return;
+        markDeleted("tasks", task.id);
         p.tasks = p.tasks.filter((t) => t.id !== task.id);
         saveState();
         renderProyectos();
@@ -2148,6 +2157,7 @@
       const p = state.projects.find((x) => x.id === selectedProjectId);
       if (!p) return;
       if (!confirm(`¿Eliminar el proyecto «${p.name}»?`)) return;
+      markDeleted("projects", p.id);
       state.projects = state.projects.filter((x) => x.id !== p.id);
       selectedProjectId = state.projects[0]?.id || null;
       saveState();
@@ -2232,6 +2242,7 @@
       updatedAt: state.updatedAt || Date.now(),
       state: {
         seeded: !!state.seeded,
+        deleted: state.deleted || {},
         habits: state.habits,
         habitMarks: state.habitMarks,
         categories: state.categories,
@@ -2333,6 +2344,28 @@
     return out;
   }
 
+
+  function markDeleted(kind, id) {
+    if (!id) return;
+    if (!state.deleted || typeof state.deleted !== "object") state.deleted = {};
+    if (!state.deleted[kind] || typeof state.deleted[kind] !== "object") state.deleted[kind] = {};
+    state.deleted[kind][id] = Date.now();
+  }
+
+  function mergeDeletedMaps(a, b) {
+    const kinds = ["habits", "projects", "accounts", "transactions", "loans", "tasks"];
+    const out = {};
+    kinds.forEach((k) => {
+      out[k] = {};
+      const left = (a && a[k]) || {};
+      const right = (b && b[k]) || {};
+      new Set([...Object.keys(left), ...Object.keys(right)]).forEach((id) => {
+        out[k][id] = Math.max(Number(left[id] || 0), Number(right[id] || 0));
+      });
+    });
+    return out;
+  }
+
   function mergeHabitMarks(a, b) {
     // habitMarks are FLAT keys "habitId:YYYY-MM-DD" -> "done"|"miss"|"bad"
     const out = {};
@@ -2346,46 +2379,54 @@
     return out;
   }
 
-  function mergeById(listA, listB) {
+  function mergeById(listA, listB, tombstones) {
     const map = new Map();
+    const dead = tombstones || {};
     (listA || []).forEach((item) => { if (item && item.id) map.set(item.id, item); });
     (listB || []).forEach((item) => {
       if (!item || !item.id) return;
       const prev = map.get(item.id);
       map.set(item.id, prev ? { ...prev, ...item } : item);
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).filter((item) => !dead[item.id]);
   }
 
   /** Une datos de ambos equipos para que hábitos/proyectos no se pisen. */
   function mergeStates(local, remote) {
     const L = local || {};
     const R = remote || {};
+    const deleted = mergeDeletedMaps(L.deleted, R.deleted);
     const merged = {
       seeded: !!(L.seeded || R.seeded),
-      habits: mergeById(L.habits, R.habits),
+      deleted,
+      habits: mergeById(L.habits, R.habits, deleted.habits),
       habitMarks: mergeHabitMarks(L.habitMarks, R.habitMarks),
       categories: {
         ingreso: Array.from(new Set([...(L.categories && L.categories.ingreso || []), ...(R.categories && R.categories.ingreso || [])])),
         gasto: Array.from(new Set([...(L.categories && L.categories.gasto || []), ...(R.categories && R.categories.gasto || [])]))
       },
-      accounts: mergeById(L.accounts, R.accounts),
-      transactions: mergeById(L.transactions, R.transactions),
-      projects: mergeById(L.projects, R.projects).map((p) => {
+      accounts: mergeById(L.accounts, R.accounts, deleted.accounts),
+      transactions: mergeById(L.transactions, R.transactions, deleted.transactions),
+      projects: mergeById(L.projects, R.projects, deleted.projects).map((p) => {
         const other = (R.projects || []).find((x) => x.id === p.id) || (L.projects || []).find((x) => x.id === p.id);
         if (!other) return p;
         const base = { ...other, ...p };
-        base.tasks = mergeById(other.tasks || [], p.tasks || []);
+        base.tasks = mergeById(other.tasks || [], p.tasks || [], deleted.tasks);
         base.missedDays = { ...(other.missedDays || {}), ...(p.missedDays || {}) };
         return base;
       }),
-      loans: mergeById(L.loans, R.loans).map((loan) => {
+      loans: mergeById(L.loans, R.loans, deleted.loans).map((loan) => {
         const left = (L.loans || []).find((x) => x.id === loan.id) || {};
         const right = (R.loans || []).find((x) => x.id === loan.id) || {};
         return { ...left, ...right, ...loan, payments: mergeById(left.payments, right.payments) };
       }),
       updatedAt: Math.max(Number(L.updatedAt || 0), Number(R.updatedAt || 0), Date.now())
     };
+    // Drop marks for deleted habits
+    Object.keys(merged.habitMarks || {}).forEach((k) => {
+      const hid = k.split(":")[0];
+      if (deleted.habits[hid]) delete merged.habitMarks[k];
+    });
     // Once real MM finance exists, never resurrect demo finance from another device.
     if (merged.accounts.some((a) => a && a._fromMM)) {
       merged.accounts = merged.accounts.filter((a) => !a._seed);
