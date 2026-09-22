@@ -1219,6 +1219,9 @@ a { color: var(--primary); }
   display: none !important;
   pointer-events: none !important;
 }
+/* Confirms/forms (#modal) must sit above Sync/Más sheets */
+#modal { z-index: 1200; }
+#sync-modal, #more-sheet { z-index: 1000; }
 .modal-backdrop {
   position: absolute;
   inset: 0;
