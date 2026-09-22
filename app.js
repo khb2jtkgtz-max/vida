@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.5";
+  const APP_VERSION = "1.12.6";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -623,19 +623,36 @@
     toast._t = setTimeout(() => el.classList.add("hidden"), 2600);
   }
 
+  /** Restore Guardar/Cancelar footer (confirmAction used to leave display:none stuck). */
+  function resetModalChrome() {
+    const modal = document.getElementById("modal");
+    if (!modal) return;
+    modal.classList.remove("modal--confirm");
+    const footer = modal.querySelector(".modal-footer");
+    if (footer) {
+      footer.style.removeProperty("display");
+      footer.hidden = false;
+    }
+  }
+
   function openModal(title, html, onSubmit, opts) {
+    resetModalChrome();
     document.getElementById("modal-title").textContent = title;
     const form = document.getElementById("modal-form");
     form.innerHTML = html;
     modalOnSubmit = onSubmit;
-    const submitBtn = document.querySelector("#modal button[type=\"submit\"]");
-    if (submitBtn) submitBtn.textContent = (opts && opts.submitLabel) || "Guardar";
+    const submitBtn = document.getElementById("modal-submit") || document.querySelector("#modal button[type=\"submit\"]");
+    if (submitBtn) {
+      submitBtn.className = "btn-primary";
+      submitBtn.textContent = (opts && opts.submitLabel) || "Guardar";
+    }
     document.getElementById("modal").classList.remove("hidden");
     const first = form.querySelector("input, select, textarea");
     if (first) setTimeout(() => first.focus(), 50);
   }
 
   function closeModal() {
+    resetModalChrome();
     document.getElementById("modal").classList.add("hidden");
     modalOnSubmit = null;
   }
@@ -649,17 +666,31 @@
       const footer = modal ? modal.querySelector(".modal-footer") : null;
       const prevLabel = submitBtn ? submitBtn.textContent : "Guardar";
       const prevClass = submitBtn ? submitBtn.className : "btn-primary";
-      const prevFooterDisplay = footer ? footer.style.display : "";
-      if (footer) footer.style.display = "none";
+      // Hide footer via class/hidden (not sticky inline display:none)
+      if (modal) modal.classList.add("modal--confirm");
+      if (footer) {
+        footer.style.removeProperty("display");
+        footer.hidden = true;
+      }
       let settled = false;
+      let obs = null;
+      const onCloseClick = (e) => {
+        if (e.target.closest("[data-close]")) finish(false);
+      };
       const finish = (ok) => {
         if (settled) return;
         settled = true;
+        if (obs) obs.disconnect();
+        if (modal) modal.removeEventListener("click", onCloseClick);
         if (submitBtn) {
           submitBtn.textContent = prevLabel;
           submitBtn.className = prevClass;
         }
-        if (footer) footer.style.display = prevFooterDisplay;
+        if (modal) modal.classList.remove("modal--confirm");
+        if (footer) {
+          footer.hidden = false;
+          footer.style.removeProperty("display");
+        }
         modalOnSubmit = null;
         if (modal) modal.classList.add("hidden");
         resolve(!!ok);
@@ -679,11 +710,8 @@
       const no = document.getElementById("confirm-no");
       if (yes) yes.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); finish(true); });
       if (no) no.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); finish(false); });
-      const onCloseClick = (e) => {
-        if (e.target.closest("[data-close]")) finish(false);
-      };
       modal.addEventListener("click", onCloseClick);
-      const obs = new MutationObserver(() => {
+      obs = new MutationObserver(() => {
         if (settled) {
           obs.disconnect();
           modal.removeEventListener("click", onCloseClick);
@@ -696,6 +724,7 @@
   }
 
   function forceCloseAllModals() {
+    resetModalChrome();
     document.getElementById("modal")?.classList.add("hidden");
     document.getElementById("sync-modal")?.classList.add("hidden");
     document.getElementById("more-sheet")?.classList.add("hidden");

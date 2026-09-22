@@ -1259,6 +1259,7 @@ a { color: var(--primary); }
 }
 .modal-box {
   position: relative;
+  z-index: 1;
   background: var(--glass-strong);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
@@ -1303,6 +1304,11 @@ a { color: var(--primary); }
   padding: 0.85rem 1.15rem;
   border-top: 1px solid var(--separator);
   padding-bottom: calc(0.85rem + var(--safe-bottom));
+}
+/* confirmAction: hide Guardar/Cancelar without sticky inline display:none */
+#modal.modal--confirm .modal-footer,
+#modal .modal-footer[hidden] {
+  display: none !important;
 }
 .modal-footer .btn-ghost,
 .modal-footer .btn-primary,
