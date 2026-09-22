@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1419" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Vida" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
+  <title>Vida — Hábitos, Finanzas y Proyectos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">◈</span>
+        <div>
+          <h1>Vida</h1>
+          <p class="tagline">Hábitos · Finanzas · Proyectos</p>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Módulos">
+        <button class="tab active" data-tab="habitos" role="tab" aria-selected="true">Hábitos</button>
+        <button class="tab" data-tab="finanzas" role="tab" aria-selected="false">Finanzas</button>
+        <button class="tab" data-tab="proyectos" role="tab" aria-selected="false">Proyectos</button>
+      </nav>
+      <div class="header-actions">
+        <button type="button" id="btn-sync" class="btn-primary btn-sync-main">↻ Sincronizar</button>
+        <button type="button" id="btn-update-app" class="btn-ghost btn-sm" title="Descargar la última versión">Actualizar app</button>
+        <button type="button" id="btn-export-backup" class="btn-ghost btn-sm" title="Descargar todos tus datos">Exportar respaldo</button>
+        <button type="button" id="btn-import-backup" class="btn-ghost btn-sm" title="Importar un respaldo de Vida">Importar respaldo</button>
+        <input type="file" id="backup-file-input" class="hidden" accept="application/json,.json" />
+        <button type="button" id="btn-wipe-seed" class="btn-ghost btn-sm" title="Eliminar datos de ejemplo">Borrar datos de ejemplo</button>
+      </div>
+    </header>
+
+    <button type="button" id="sync-banner" class="sync-banner" aria-live="polite" title="Abrir sincronización">
+      <span id="sync-banner-dot" class="sync-dot" aria-hidden="true"></span>
+      <span id="sync-banner-text">Sin sincronización · toca aquí para emparejar iPhone y Mac</span>
+      <span class="sync-banner-cta">Abrir</span>
+    </button>
+
+    <main>
+      <!-- ========== HÁBITOS ========== -->
+      <section id="panel-habitos" class="panel active" role="tabpanel">
+        <div class="panel-toolbar">
+          <h2>Hábitos</h2>
+          <button type="button" id="btn-new-habit" class="btn-primary">+ Nuevo hábito</button>
+        </div>
+        <div class="habitos-layout">
+          <aside class="habit-list-card card">
+            <h3>Mis hábitos</h3>
+            <ul id="habit-list" class="habit-list"></ul>
+            <p id="habit-empty" class="empty-hint hidden">Aún no tienes hábitos. Crea uno para empezar.</p>
+          </aside>
+          <div class="habit-detail card">
+            <div id="habit-detail-empty" class="empty-state">
+              <p>Selecciona un hábito para ver el calendario</p>
+            </div>
+            <div id="habit-detail" class="hidden">
+              <div class="habit-detail-header">
+                <div>
+                  <h3 id="habit-detail-name"></h3>
+                  <p id="habit-detail-meta" class="muted"></p>
+                </div>
+                <div class="habit-detail-actions">
+                  <button type="button" id="btn-edit-habit" class="btn-ghost btn-sm">Editar</button>
+                  <button type="button" id="btn-delete-habit" class="btn-danger btn-sm">Eliminar</button>
+                </div>
+              </div>
+              <div class="stats-row" id="habit-stats"></div>
+              <div class="cal-nav">
+                <button type="button" id="cal-prev" class="btn-icon" aria-label="Mes anterior">‹</button>
+                <h4 id="cal-month-label"></h4>
+                <button type="button" id="cal-next" class="btn-icon" aria-label="Mes siguiente">›</button>
+              </div>
+              <div class="calendar" id="habit-calendar"></div>
+              <p class="cal-legend muted">
+                <span class="leg leg-done"></span> Hecho
+                <span class="leg leg-miss"></span> Incumplido
+                <span class="leg leg-bad"></span> Mal hábito
+                <span class="leg leg-na"></span> No aplica
+                <span class="leg leg-empty"></span> Vacío
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== FINANZAS ========== -->
+      <section id="panel-finanzas" class="panel" role="tabpanel" hidden>
+        <div class="panel-toolbar">
+          <h2>Finanzas</h2>
+          <div class="toolbar-right">
+            <label class="month-picker">
+              <span class="sr-only">Mes</span>
+              <input type="month" id="fin-month" />
+            </label>
+            <button type="button" id="btn-import-mm" class="btn-ghost">Importar Money Manager</button>
+            <button type="button" id="btn-new-tx" class="btn-primary">+ Movimiento</button>
+          </div>
+        </div>
+        <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
+        <div class="card cuentas-section">
+          <div class="card-head">
+            <h3>Cuentas</h3>
+            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
+          </div>
+          <p id="accounts-total" class="accounts-total"></p>
+          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
+        </div>
+        <div class="fin-dashboard">
+          <div class="stat-card card balance">
+            <span class="stat-label" id="fin-balance-label">Balance del mes</span>
+            <strong id="fin-balance" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card ingreso">
+            <span class="stat-label">Ingresos</span>
+            <strong id="fin-ingresos" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card gasto">
+            <span class="stat-label">Gastos</span>
+            <strong id="fin-gastos" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card loan">
+            <span class="stat-label">Total que te deben</span>
+            <strong id="fin-loans-total" class="stat-value">$0.00</strong>
+          </div>
+        </div>
+        <div class="card loans-section">
+          <div class="card-head">
+            <div><h3>Préstamos que me deben</h3><p class="muted loans-subtitle">Registra dinero prestado y sus cobros.</p></div>
+            <button type="button" id="btn-new-loan" class="btn-ghost btn-sm">+ Préstamo</button>
+          </div>
+          <div id="loans-list" class="loans-list"></div>
+          <p id="loans-empty" class="empty-hint hidden">No tienes préstamos pendientes registrados.</p>
+        </div>
+        <div class="finanzas-layout">
+          <div class="card">
+            <div class="card-head">
+              <h3>Movimientos</h3>
+              <div class="fin-filters">
+                <select id="fin-filter-account" aria-label="Filtrar por cuenta">
+                  <option value="all">Todas las cuentas</option>
+                </select>
+                <select id="fin-filter-type" aria-label="Filtrar por tipo">
+                  <option value="all">Todos</option>
+                  <option value="ingreso">Ingresos</option>
+                  <option value="gasto">Gastos</option>
+                </select>
+              </div>
+            </div>
+            <ul id="tx-list" class="tx-list"></ul>
+            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes.</p>
+          </div>
+          <div class="card">
+            <h3>Por categoría</h3>
+            <div id="fin-chart" class="chart-bars"></div>
+            <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== PROYECTOS ========== -->
+      <section id="panel-proyectos" class="panel" role="tabpanel" hidden>
+        <div class="panel-toolbar">
+          <h2>Proyectos</h2>
+          <button type="button" id="btn-new-project" class="btn-primary">+ Nuevo proyecto</button>
+        </div>
+        <div class="proyectos-layout">
+          <aside class="card">
+            <h3>Lista</h3>
+            <ul id="project-list" class="project-list"></ul>
+            <p id="project-empty" class="empty-hint hidden">Crea tu primer proyecto.</p>
+          </aside>
+          <div class="card project-detail-wrap">
+            <div id="project-detail-empty" class="empty-state">
+              <p>Selecciona un proyecto para ver tareas y cronograma</p>
+            </div>
+            <div id="project-detail" class="hidden">
+              <div class="project-detail-header">
+                <div>
+                  <h3 id="project-detail-name"></h3>
+                  <p id="project-detail-meta" class="muted"></p>
+                </div>
+                <div class="habit-detail-actions">
+                  <button type="button" id="btn-edit-project" class="btn-ghost btn-sm">Editar</button>
+                  <button type="button" id="btn-delete-project" class="btn-danger btn-sm">Eliminar</button>
+                </div>
+              </div>
+              <p id="project-detail-desc" class="desc"></p>
+              <div class="card-head">
+                <h4>Tareas / hitos</h4>
+                <button type="button" id="btn-new-task" class="btn-ghost btn-sm">+ Tarea</button>
+              </div>
+              <ul id="task-list" class="task-list"></ul>
+              <div id="project-miss-wrap" class="project-miss-wrap"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card gantt-card">
+          <div class="card-head">
+            <h3>Cronograma</h3>
+            <div class="gantt-controls">
+              <button type="button" id="gantt-prev" class="btn-icon" aria-label="Anterior">‹</button>
+              <span id="gantt-label"></span>
+              <button type="button" id="gantt-next" class="btn-icon" aria-label="Siguiente">›</button>
+              <select id="gantt-scale" aria-label="Escala">
+                <option value="week">Por semana</option>
+                <option value="month">Por mes</option>
+              </select>
+            </div>
+          </div>
+          <div id="gantt" class="gantt"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span id="footer-storage">Datos en este dispositivo + sincronización opcional · respaldo descargable disponible</span>
+      <button type="button" id="btn-update-app-footer" class="btn-primary btn-sm">Actualizar app</button>
+      <span id="app-version-label" class="muted app-version-label"></span>
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Formulario</h3>
+        <button type="button" class="btn-icon" data-close aria-label="Cerrar">×</button>
+      </div>
+      <form id="modal-form" class="modal-body"></form>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" data-close>Cancelar</button>
+        <button type="submit" form="modal-form" class="btn-primary" id="modal-submit">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Sync modal -->
+  <div id="sync-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sync-modal-title">
+    <div class="modal-backdrop" data-sync-close></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="sync-modal-title">Sincronizar entre dispositivos</h3>
+        <button type="button" class="btn-icon" data-sync-close aria-label="Cerrar">×</button>
+      </div>
+      <div class="modal-body sync-modal-body">
+        <p class="muted"><strong>Solo un equipo crea el código.</strong> El otro lo pega abajo. Si ambos crearon uno, en este equipo desconecta y pega el del otro.</p>
+
+        <div id="sync-panel-host" class="sync-panel-host">
+          <div id="sync-no-code">
+            <button type="button" id="btn-sync-create" class="btn-primary btn-block">1. Crear código en este equipo</button>
+          </div>
+          <div id="sync-has-code" class="hidden">
+            <label class="field">
+              <span>Código de este equipo (copiar y mandar al otro)</span>
+              <div class="sync-code-row">
+                <input type="text" id="sync-code-display" readonly inputmode="text" />
+                <button type="button" id="btn-sync-copy" class="btn-primary">Copiar</button>
+              </div>
+            </label>
+            <p id="sync-active-hint" class="muted">En el otro equipo no crees otro código: pégalo en la sección de abajo.</p>
+            <div class="sync-actions">
+              <button type="button" id="btn-sync-now" class="btn-primary">Sincronizar ahora</button>
+              <button type="button" id="btn-sync-disconnect" class="btn-ghost">Desconectar / cambiar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-or">en el otro equipo</div>
+
+        <div id="sync-panel-join" class="sync-panel-join">
+          <label class="field">
+            <span>2. Pegar aquí el código del otro equipo</span>
+            <input type="text" id="sync-code-input" placeholder="Ej. a7k2m9qx" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" enterkeyhint="done" />
+          </label>
+          <button type="button" id="btn-sync-connect" class="btn-primary btn-block">Conectar con este código</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" data-sync-close>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
