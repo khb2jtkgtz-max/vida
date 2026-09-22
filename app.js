@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.9";
+  const APP_VERSION = "1.10.0";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -607,16 +607,16 @@
   }
 
 
-  /** Confirmación dentro de la app (confirm() nativo falla en PWA iOS/Mac a veces). */
+  /** Confirmación dentro de la app (botones propios; no depende de confirm() nativo). */
   function confirmAction(title, message, confirmLabel) {
     return new Promise((resolve) => {
+      const modal = document.getElementById("modal");
       const submitBtn = document.getElementById("modal-submit");
+      const footer = modal ? modal.querySelector(".modal-footer") : null;
       const prevLabel = submitBtn ? submitBtn.textContent : "Guardar";
       const prevClass = submitBtn ? submitBtn.className : "btn-primary";
-      if (submitBtn) {
-        submitBtn.textContent = confirmLabel || "Eliminar";
-        submitBtn.className = "btn-danger";
-      }
+      const prevFooterDisplay = footer ? footer.style.display : "";
+      if (footer) footer.style.display = "none";
       let settled = false;
       const finish = (ok) => {
         if (settled) return;
@@ -625,32 +625,37 @@
           submitBtn.textContent = prevLabel;
           submitBtn.className = prevClass;
         }
-        resolve(ok);
+        if (footer) footer.style.display = prevFooterDisplay;
+        modalOnSubmit = null;
+        if (modal) modal.classList.add("hidden");
+        resolve(!!ok);
       };
-      openModal(title || "Confirmar", `<p style="margin:0;line-height:1.45">${message}</p>`, () => {
-        finish(true);
-        return true;
-      });
-      // If user closes with Cancelar/backdrop/X, treat as false
-      const modal = document.getElementById("modal");
+      const label = confirmLabel || "Eliminar";
+      const html = `
+        <p style="margin:0 0 1rem;line-height:1.45">${message}</p>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;flex-wrap:wrap">
+          <button type="button" class="btn-ghost" id="confirm-no">Cancelar</button>
+          <button type="button" class="btn-danger" id="confirm-yes">${label}</button>
+        </div>`;
+      document.getElementById("modal-title").textContent = title || "Confirmar";
+      document.getElementById("modal-form").innerHTML = html;
+      modalOnSubmit = null;
+      modal.classList.remove("hidden");
+      const yes = document.getElementById("confirm-yes");
+      const no = document.getElementById("confirm-no");
+      if (yes) yes.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); finish(true); });
+      if (no) no.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); finish(false); });
       const onCloseClick = (e) => {
-        if (e.target.closest("[data-close]")) {
-          setTimeout(() => {
-            if (modal.classList.contains("hidden")) finish(false);
-          }, 0);
-        }
+        if (e.target.closest("[data-close]")) finish(false);
       };
       modal.addEventListener("click", onCloseClick);
       const obs = new MutationObserver(() => {
-        if (modal.classList.contains("hidden") && !settled) {
-          finish(false);
-          obs.disconnect();
-          modal.removeEventListener("click", onCloseClick);
-        }
         if (settled) {
           obs.disconnect();
           modal.removeEventListener("click", onCloseClick);
+          return;
         }
+        if (modal.classList.contains("hidden")) finish(false);
       });
       obs.observe(modal, { attributes: true, attributeFilter: ["class"] });
     });
@@ -2221,7 +2226,10 @@
     });
     document.getElementById("btn-delete-project").addEventListener("click", async () => {
       const p = state.projects.find((x) => x.id === selectedProjectId);
-      if (!p) return;
+      if (!p) {
+        toast("Selecciona un proyecto primero");
+        return;
+      }
       const ok = await confirmAction("Eliminar proyecto", `¿Eliminar el proyecto «${escapeHtml(p.name)}»?`, "Eliminar");
       if (!ok) return;
       markDeleted("projects", p.id);
