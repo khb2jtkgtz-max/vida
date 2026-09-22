@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.10";
+  const APP_VERSION = "1.12.11";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1027,14 +1027,14 @@
       statsEl.innerHTML = `
         <div class="stat-pill">Caídas <strong>${stats.bad}</strong></div>
         <div class="stat-pill">Evitado <strong>${stats.miss}</strong></div>
-        <div class="stat-pill">Racha <strong>${stats.streak}</strong></div>
+        <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
         <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
       `;
     } else {
       statsEl.innerHTML = `
         <div class="stat-pill">Hechos <strong>${stats.done}</strong></div>
         <div class="stat-pill">Incumplidos <strong>${stats.miss}</strong></div>
-        <div class="stat-pill">Racha <strong>${stats.streak}</strong></div>
+        <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
         <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
       `;
     }
