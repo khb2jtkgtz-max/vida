@@ -1202,7 +1202,7 @@ a { color: var(--primary); }
 .sync-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
 @media (max-width: 800px) {
   .header-actions { order: 2; margin-left: 0; width: 100%; }
-  .app-header #btn-wipe-seed { margin-left: 0; display: none; }
+  .app-header #btn-wipe-seed { margin-left: 0; display: inline-flex; }
   .btn-sync-main { order: -1; }
 }
 

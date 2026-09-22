@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.1";
+  const APP_VERSION = "1.10.2";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2923,8 +2923,42 @@
     }
   }
 
-  function wipeSeed() {
-    if (!confirm("¿Borrar solo los datos de ejemplo? Tus registros propios se conservan.")) return;
+  function hasSeedData() {
+    return !!(
+      (state.habits || []).some((h) => h && h._seed) ||
+      (state.projects || []).some((p) => p && p._seed) ||
+      (state.accounts || []).some((a) => a && a._seed) ||
+      (state.transactions || []).some((t) => t && t._seed)
+    );
+  }
+
+  function updateWipeSeedVisibility() {
+    const show = hasSeedData();
+    ["btn-wipe-seed", "btn-wipe-seed-footer"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = !show;
+    });
+  }
+
+  async function wipeSeed() {
+    if (!hasSeedData()) {
+      toast("No hay datos de ejemplo que borrar");
+      updateWipeSeedVisibility();
+      return;
+    }
+    const ok = await confirmAction(
+      "Borrar datos de ejemplo",
+      "¿Borrar solo los datos de ejemplo? Tus registros propios se conservan.",
+      "Borrar ejemplos"
+    );
+    if (!ok) return;
+    (state.habits || []).filter((h) => h && h._seed).forEach((h) => markDeleted("habits", h.id));
+    (state.projects || []).filter((p) => p && p._seed).forEach((p) => {
+      markDeleted("projects", p.id);
+      (p.tasks || []).forEach((task) => markDeleted("tasks", task.id));
+    });
+    (state.accounts || []).filter((a) => a && a._seed).forEach((a) => markDeleted("accounts", a.id));
+    (state.transactions || []).filter((t) => t && t._seed).forEach((t) => markDeleted("transactions", t.id));
     state.habits = state.habits.filter((h) => !h._seed);
     state.transactions = state.transactions.filter((t) => !t._seed);
     state.projects = state.projects.filter((p) => !p._seed);
@@ -2939,7 +2973,6 @@
         t.accountId = fallbackId;
       }
     });
-    // clean marks for removed habits
     const ids = new Set(state.habits.map((h) => h.id));
     Object.keys(state.habitMarks).forEach((k) => {
       const hid = k.split(":")[0];
@@ -2951,10 +2984,15 @@
     selectedHabitId = state.habits[0]?.id || null;
     selectedProjectId = state.projects[0]?.id || null;
     renderAll();
+    updateWipeSeedVisibility();
     toast("Datos de ejemplo eliminados");
+    if (syncId) {
+      try { await syncNow({ quiet: true }); } catch (_) {}
+    }
   }
 
   function renderAll() {
+    updateWipeSeedVisibility();
     renderHabitos();
     renderFinanzas();
     renderProyectos();
@@ -3143,7 +3181,9 @@
     initProyectos();
     initSyncUI();
     initBackupUI();
-    document.getElementById("btn-wipe-seed").addEventListener("click", wipeSeed);
+    document.getElementById("btn-wipe-seed")?.addEventListener("click", () => { wipeSeed(); });
+    document.getElementById("btn-wipe-seed-footer")?.addEventListener("click", () => { wipeSeed(); });
+    updateWipeSeedVisibility();
     document.getElementById("btn-import-mm")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
     document.getElementById("btn-import-mm-footer")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
     document.getElementById("btn-update-app")?.addEventListener("click", updateAppFromInside);
