@@ -2,9 +2,14 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.9.8";
+  const APP_VERSION = "1.9.9";
   // Remote sync API (used when the app is on GitHub Pages / static host)
-  const SYNC_REMOTE_BASE = localStorage.getItem("vida-sync-base") || "https://pricing-lindsay-schema-portraits.trycloudflare.com";
+  const _savedSyncBase = localStorage.getItem("vida-sync-base");
+  const SYNC_REMOTE_BASE = (
+    _savedSyncBase && /trycloudflare\.com/i.test(_savedSyncBase)
+      ? (localStorage.removeItem("vida-sync-base"), "https://vida-sync.khb2jtkgtz.workers.dev")
+      : (_savedSyncBase || "https://vida-sync.khb2jtkgtz.workers.dev")
+  );
 
   const STORAGE_KEY = "vida-app-v1";
   const SEED_FLAG = "vida-seed-present";
