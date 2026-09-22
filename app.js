@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.7";
+  const APP_VERSION = "1.12.8";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1001,6 +1001,7 @@
       const scheduled = isHabitScheduled(habit, ds);
       const btn = document.createElement("button");
       btn.type = "button";
+      btn.dataset.date = ds;
       let cls = "cal-day";
       if (ds === tStr) cls += " today";
       if (!inPeriod || !scheduled) cls += " na";
@@ -2115,6 +2116,7 @@
       const missed = !!bag[ds];
       const btn = document.createElement("button");
       btn.type = "button";
+      btn.dataset.date = ds;
       let cls = "cal-day";
       if (ds === tStr) cls += " today";
       if (!scheduled) cls += " na";
