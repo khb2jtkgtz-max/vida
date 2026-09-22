@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.3";
+  const APP_VERSION = "1.10.4";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2757,25 +2757,47 @@
     document.getElementById("btn-sync-now")?.addEventListener("click", () => syncNow({ quiet: false }));
     document.getElementById("btn-sync-disconnect")?.addEventListener("click", () => disconnectSync({ confirm: false }));
 
+    let liveSyncTimer = null;
+    function pullIfLive() {
+      if (!syncId || !navigator.onLine) return;
+      if (document.visibilityState !== "visible") return;
+      syncNow({ quiet: true }).catch(() => {});
+    }
+    function startLiveSync() {
+      stopLiveSync();
+      if (!syncId || !navigator.onLine) return;
+      pullIfLive();
+      // Mac often deja la pestaña abierta: bajar cambios cada 20s mientras esté visible
+      liveSyncTimer = setInterval(pullIfLive, 20000);
+    }
+    function stopLiveSync() {
+      if (liveSyncTimer) {
+        clearInterval(liveSyncTimer);
+        liveSyncTimer = null;
+      }
+    }
+
     window.addEventListener("online", () => {
       setSyncStatus(syncId ? "pending" : "idle");
-      if (syncId) syncNow({ quiet: true });
+      startLiveSync();
     });
-    window.addEventListener("offline", () => setSyncStatus("offline"));
-    window.addEventListener("focus", () => {
-      if (syncId && navigator.onLine) syncNow({ quiet: true });
+    window.addEventListener("offline", () => {
+      setSyncStatus("offline");
+      stopLiveSync();
     });
+    window.addEventListener("focus", pullIfLive);
+    window.addEventListener("pageshow", pullIfLive);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && syncId && navigator.onLine) {
-        syncNow({ quiet: true });
-      }
+      if (document.visibilityState === "visible") startLiveSync();
+      else stopLiveSync();
     });
 
     if (syncId) {
       setSyncStatus(navigator.onLine ? "pending" : "offline");
-      if (navigator.onLine) syncNow({ quiet: true });
+      startLiveSync();
     } else {
       setSyncStatus("idle");
+      stopLiveSync();
     }
   }
 
