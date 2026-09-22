@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.10.4";
+  const APP_VERSION = "1.10.5";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2676,6 +2676,7 @@
     syncId = null;
     localStorage.removeItem(SYNC_ID_KEY);
     clearTimeout(syncTimer);
+    stopLiveSync();
     setSyncStatus("idle");
     updateSyncModal();
     const input = document.getElementById("sync-code-input");
@@ -2711,6 +2712,26 @@
 
   function closeSyncModal() {
     document.getElementById("sync-modal").classList.add("hidden");
+  }
+
+  let liveSyncTimer = null;
+  function pullIfLive() {
+    if (!syncId || !navigator.onLine) return;
+    if (document.visibilityState !== "visible") return;
+    syncNow({ quiet: true }).catch(() => {});
+  }
+  function stopLiveSync() {
+    if (liveSyncTimer) {
+      clearInterval(liveSyncTimer);
+      liveSyncTimer = null;
+    }
+  }
+  function startLiveSync() {
+    stopLiveSync();
+    if (!syncId || !navigator.onLine) return;
+    pullIfLive();
+    // Mac often deja la pestaña abierta: bajar cambios cada 20s mientras esté visible
+    liveSyncTimer = setInterval(pullIfLive, 20000);
   }
 
   function initSyncUI() {
@@ -2756,26 +2777,6 @@
     });
     document.getElementById("btn-sync-now")?.addEventListener("click", () => syncNow({ quiet: false }));
     document.getElementById("btn-sync-disconnect")?.addEventListener("click", () => disconnectSync({ confirm: false }));
-
-    let liveSyncTimer = null;
-    function pullIfLive() {
-      if (!syncId || !navigator.onLine) return;
-      if (document.visibilityState !== "visible") return;
-      syncNow({ quiet: true }).catch(() => {});
-    }
-    function startLiveSync() {
-      stopLiveSync();
-      if (!syncId || !navigator.onLine) return;
-      pullIfLive();
-      // Mac often deja la pestaña abierta: bajar cambios cada 20s mientras esté visible
-      liveSyncTimer = setInterval(pullIfLive, 20000);
-    }
-    function stopLiveSync() {
-      if (liveSyncTimer) {
-        clearInterval(liveSyncTimer);
-        liveSyncTimer = null;
-      }
-    }
 
     window.addEventListener("online", () => {
       setSyncStatus(syncId ? "pending" : "idle");
@@ -2887,6 +2888,7 @@
       if (!syncId && parsed.syncId && /^[a-z0-9-]{6,80}$/i.test(parsed.syncId)) {
         syncId = String(parsed.syncId).toLowerCase();
         localStorage.setItem(SYNC_ID_KEY, syncId);
+    startLiveSync();
       }
       saveState();
       selectedHabitId = state.habits[0]?.id || null;
