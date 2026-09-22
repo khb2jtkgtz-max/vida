@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.9";
+  const APP_VERSION = "1.12.10";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -846,10 +846,17 @@
     // Racha actual: desde hoy hacia atrás, solo días programados.
     // Buen: solo cuenta "done". Mal ("sin caer"): solo cuenta "miss" (evitado).
     // Hoy sin marca aún no rompe ni suma (gracia del día en curso).
+    let bestStreak = 0;
     if (habit) {
       streak = currentHabitStreak(habit);
+      bestStreak = bestHabitStreak(habit);
     }
-    return { done, miss, bad, streak, limit, scheduled };
+    return { done, miss, bad, streak, bestStreak, limit, scheduled };
+  }
+
+  function isStreakSuccess(habit, mark) {
+    if (habit.type === "mal") return mark === "miss";
+    return mark === "done";
   }
 
   function currentHabitStreak(habit) {
@@ -871,29 +878,73 @@
       }
       const mark = getMark(habit.id, ds);
       const isToday = ds === todayStr;
-
-      if (habit.type === "mal") {
-        if (mark === "bad") break;
-        if (isToday && !mark) {
-          cursor.setDate(cursor.getDate() - 1);
-          continue;
-        }
-        // Solo días marcados como evitados cuentan; vacío en el pasado corta la racha
-        if (mark === "miss") streak++;
-        else break;
-      } else {
-        if (isToday && !mark) {
-          cursor.setDate(cursor.getDate() - 1);
-          continue;
-        }
-        if (mark === "done") streak++;
-        else break;
+      if (isToday && !mark) {
+        cursor.setDate(cursor.getDate() - 1);
+        continue;
       }
+      if (isStreakSuccess(habit, mark)) streak++;
+      else break;
       cursor.setDate(cursor.getDate() - 1);
       if (streak >= 365) break;
     }
     return streak;
   }
+
+  /** Mejor racha histórica: la secuencia más larga de éxitos en días programados. */
+  function bestHabitStreak(habit) {
+    if (!habit) return 0;
+    const todayD = new Date();
+    const todayStr = isoDate(new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate()));
+    let start;
+    if (habit.startDate) {
+      start = parseISO(habit.startDate);
+    } else {
+      // desde la marca más antigua o 400 días atrás
+      let earliest = null;
+      const prefix = habit.id + ":";
+      Object.keys(state.habitMarks || {}).forEach((k) => {
+        if (!k.startsWith(prefix)) return;
+        const ds = k.slice(prefix.length);
+        if (!earliest || ds < earliest) earliest = ds;
+      });
+      if (earliest) start = parseISO(earliest);
+      else {
+        start = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate());
+        start.setDate(start.getDate() - 60);
+      }
+    }
+    if (habit.endDate) {
+      const endCap = parseISO(habit.endDate);
+      // walk only to min(today, end)
+    }
+    let end = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate());
+    if (habit.endDate) {
+      const e = parseISO(habit.endDate);
+      if (e < end) end = e;
+    }
+    let best = 0;
+    let run = 0;
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    let guard = 0;
+    while (cursor.getTime() <= end.getTime() && guard++ < 2000) {
+      const ds = isoDate(cursor);
+      if (isHabitScheduled(habit, ds)) {
+        const mark = getMark(habit.id, ds);
+        // Hoy vacío: no corta ni alarga la mejor (aún se puede completar)
+        if (ds === todayStr && !mark) {
+          /* ignore */
+        } else if (isStreakSuccess(habit, mark)) {
+          run++;
+          if (run > best) best = run;
+        } else {
+          run = 0;
+        }
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return best;
+  }
+
 
   function renderHabitList() {
     const ul = document.getElementById("habit-list");
@@ -976,13 +1027,15 @@
       statsEl.innerHTML = `
         <div class="stat-pill">Caídas <strong>${stats.bad}</strong></div>
         <div class="stat-pill">Evitado <strong>${stats.miss}</strong></div>
-        <div class="stat-pill">Racha sin caer <strong>${stats.streak}</strong></div>
+        <div class="stat-pill">Racha <strong>${stats.streak}</strong></div>
+        <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
       `;
     } else {
       statsEl.innerHTML = `
         <div class="stat-pill">Hechos <strong>${stats.done}</strong></div>
         <div class="stat-pill">Incumplidos <strong>${stats.miss}</strong></div>
         <div class="stat-pill">Racha <strong>${stats.streak}</strong></div>
+        <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
       `;
     }
 
