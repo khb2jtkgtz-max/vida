@@ -620,6 +620,7 @@ a { color: var(--primary); }
 .stat-card.loan .stat-value { color: var(--warn); }
 
 .finanzas-layout {
+  margin-top: 0.25rem;
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 1rem;

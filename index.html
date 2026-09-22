@@ -110,6 +110,30 @@
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
+        <div class="finanzas-layout">
+          <div class="card">
+            <div class="card-head">
+              <h3>Movimientos</h3>
+              <div class="fin-filters">
+                <select id="fin-filter-account" aria-label="Filtrar por cuenta">
+                  <option value="all">Todas las cuentas</option>
+                </select>
+                <select id="fin-filter-type" aria-label="Filtrar por tipo">
+                  <option value="all">Todos</option>
+                  <option value="ingreso">Ingresos</option>
+                  <option value="gasto">Gastos</option>
+                </select>
+              </div>
+            </div>
+            <ul id="tx-list" class="tx-list"></ul>
+            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes.</p>
+          </div>
+          <div class="card">
+            <h3>Por categoría</h3>
+            <div id="fin-chart" class="chart-bars"></div>
+            <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
+          </div>
+        </div>
         <div class="fin-dashboard">
           <div class="stat-card card balance">
             <span class="stat-label" id="fin-balance-label">Balance del mes</span>
@@ -143,30 +167,6 @@
           </div>
           <div id="loans-list" class="loans-list"></div>
           <p id="loans-empty" class="empty-hint hidden">No tienes préstamos pendientes registrados.</p>
-        </div>
-        <div class="finanzas-layout">
-          <div class="card">
-            <div class="card-head">
-              <h3>Movimientos</h3>
-              <div class="fin-filters">
-                <select id="fin-filter-account" aria-label="Filtrar por cuenta">
-                  <option value="all">Todas las cuentas</option>
-                </select>
-                <select id="fin-filter-type" aria-label="Filtrar por tipo">
-                  <option value="all">Todos</option>
-                  <option value="ingreso">Ingresos</option>
-                  <option value="gasto">Gastos</option>
-                </select>
-              </div>
-            </div>
-            <ul id="tx-list" class="tx-list"></ul>
-            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes.</p>
-          </div>
-          <div class="card">
-            <h3>Por categoría</h3>
-            <div id="fin-chart" class="chart-bars"></div>
-            <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
-          </div>
         </div>
       </section>
 
