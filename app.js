@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.18";
+  const APP_VERSION = "1.12.19";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -563,6 +563,15 @@
     if (acc.type === "credito") return bal < 0 ? Math.abs(bal) : 0;
     return bal < 0 ? Math.abs(bal) : 0;
   }
+
+  /** Suma de deuda de todas las tarjetas de crédito. */
+  function totalCreditDebt() {
+    return state.accounts.reduce((sum, a) => {
+      if (a.type !== "credito") return sum;
+      return sum + creditDebtAmount(a);
+    }, 0);
+  }
+
 
   /**
    * Fecha de pago del estado abierto: último corte ≤ hoy, luego el primer
@@ -1894,6 +1903,8 @@
     document.getElementById("fin-balance").textContent = formatMXN(ingresos - gastos);
     document.getElementById("fin-ingresos").textContent = formatMXN(ingresos);
     document.getElementById("fin-gastos").textContent = formatMXN(gastos);
+    const creditDebtEl = document.getElementById("fin-credit-debt");
+    if (creditDebtEl) creditDebtEl.textContent = formatMXN(totalCreditDebt());
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(totalLoanOutstanding());
     const balLabel = document.getElementById("fin-balance-label");

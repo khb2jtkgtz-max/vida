@@ -593,7 +593,7 @@ a { color: var(--primary); }
 /* Finanzas */
 .fin-dashboard {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 0.55rem;
   margin-bottom: 1rem;
   overflow-x: auto;
@@ -618,6 +618,7 @@ a { color: var(--primary); }
 .stat-card.ingreso .stat-value { color: var(--ingreso); }
 .stat-card.gasto .stat-value { color: var(--gasto); }
 .stat-card.loan .stat-value { color: var(--warn); }
+.stat-card.debt-owe .stat-value { color: var(--gasto); }
 
 .finanzas-layout {
   margin-top: 0.25rem;
