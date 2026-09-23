@@ -1932,5 +1932,23 @@ a { color: var(--primary); }
   border-color: color-mix(in srgb, var(--gasto) 50%, transparent);
   color: var(--text);
 }
+.btn-tx-transfer {
+  flex: 1;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
+  color: var(--text);
+}
+.tx-quick-actions { flex-wrap: wrap; }
+.btn-tx-ingreso, .btn-tx-gasto, .btn-tx-transfer { min-width: calc(50% - 0.35rem); }
+.btn-tx-transfer { min-width: 100%; }
+@media (min-width: 640px) {
+  .btn-tx-ingreso, .btn-tx-gasto, .btn-tx-transfer { min-width: 0; flex: 1; }
+}
+
 .btn-tx-ingreso:active,
 .btn-tx-gasto:active { transform: scale(0.98); opacity: 0.92; }

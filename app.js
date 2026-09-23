@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.29";
+  const APP_VERSION = "1.12.30";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2100,6 +2100,8 @@
     }
     let ingresos = 0, gastos = 0;
     txs.forEach((t) => {
+      // Las transferencias entre cuentas no cuentan como ingreso/gasto del mes
+      if (t.category === "Transferencia" || t._transferPair) return;
       if (t.type === "ingreso") ingresos += Number(t.amount);
       else gastos += Number(t.amount);
     });
@@ -2426,6 +2428,118 @@
     });
   }
 
+
+  function ensureTransferCategories() {
+    if (!state.categories.gasto.includes("Transferencia")) {
+      state.categories.gasto.push("Transferencia");
+    }
+    if (!state.categories.ingreso.includes("Transferencia")) {
+      state.categories.ingreso.push("Transferencia");
+    }
+  }
+
+  /** Cuentas de dinero (no tarjetas ni préstamos que debes). */
+  function transferableAccounts() {
+    return state.accounts.filter((a) => !isOwedAccountType(a));
+  }
+
+  function openTransferModal() {
+    const accs = transferableAccounts();
+    if (accs.length < 2) {
+      toast("Necesitas al menos 2 cuentas (efectivo/banco) para transferir");
+      openAccountModal(null);
+      return;
+    }
+    ensureTransferCategories();
+    const opts = (selectedId) => accs.map((a) => {
+      const bal = accountBalance(a.id);
+      return `<option value="${escapeAttr(a.id)}" ${a.id === selectedId ? "selected" : ""}>${escapeHtml((a.icon || "") + " " + a.name)} · ${formatMXN(bal)}</option>`;
+    }).join("");
+    const fromDefault = accs[0].id;
+    const toDefault = accs[1].id;
+    const html = `
+      <div class="form-grid">
+        <p class="field-hint">Mueve dinero de una cuenta a otra. No cambia tu “Me queda”; solo cambia en qué cuenta está.</p>
+        <div class="form-row">
+          <label for="f-tr-from">Desde</label>
+          <select id="f-tr-from" name="fromAccountId" required>${opts(fromDefault)}</select>
+        </div>
+        <div class="form-row">
+          <label for="f-tr-to">Hacia</label>
+          <select id="f-tr-to" name="toAccountId" required>${opts(toDefault)}</select>
+        </div>
+        <div class="form-row">
+          <label for="f-tr-amount">Monto (MXN)</label>
+          <input id="f-tr-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" required placeholder="Ej. 500" />
+        </div>
+        <div class="form-row">
+          <label for="f-tr-date">Fecha</label>
+          <input id="f-tr-date" name="date" type="date" required value="${escapeAttr(isoDate(new Date()))}" />
+        </div>
+        <div class="form-row">
+          <label for="f-tr-note">Nota (opcional)</label>
+          <input id="f-tr-note" name="note" maxlength="120" placeholder="Ej. sacar efectivo" />
+        </div>
+      </div>`;
+    openModal("Transferencia entre cuentas", html, (fd) => {
+      const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-tr-amount")?.value);
+      if (!(amount > 0)) {
+        toast("Monto inválido");
+        return false;
+      }
+      const fromId = fd.get("fromAccountId");
+      const toId = fd.get("toAccountId");
+      if (!fromId || !toId || fromId === toId) {
+        toast("Elige dos cuentas distintas");
+        return false;
+      }
+      if (!accountById(fromId) || !accountById(toId)) {
+        toast("Cuenta no válida");
+        return false;
+      }
+      if (isOwedAccountType(accountById(fromId)) || isOwedAccountType(accountById(toId))) {
+        toast("Para pagar una tarjeta usa el botón Pagar");
+        return false;
+      }
+      const date = fd.get("date") || isoDate(new Date());
+      const note = (fd.get("note") || "").trim();
+      const fromName = accountById(fromId).name;
+      const toName = accountById(toId).name;
+      const pairId = uid();
+      state.transactions.push({
+        id: uid(),
+        type: "gasto",
+        amount,
+        category: "Transferencia",
+        date,
+        note: note || `A ${toName}`,
+        accountId: fromId,
+        paymentMethod: "Transferencia",
+        _transferPair: pairId,
+        _transferRole: "from"
+      });
+      state.transactions.push({
+        id: uid(),
+        type: "ingreso",
+        amount,
+        category: "Transferencia",
+        date,
+        note: note || `Desde ${fromName}`,
+        accountId: toId,
+        paymentMethod: "Transferencia",
+        _transferPair: pairId,
+        _transferRole: "to"
+      });
+      saveState();
+      const ym = date.slice(0, 7);
+      const monthEl = document.getElementById("fin-month");
+      if (monthEl) monthEl.value = ym;
+      renderFinanzas();
+      toast(`Transferiste ${formatMXN(amount)} · ${fromName} → ${toName}`);
+      return true;
+    }, { submitLabel: "Transferir" });
+  }
+
   function openTxModal(tx, presetType) {
     if (!state.accounts.length) {
       toast("Crea una cuenta primero");
@@ -2492,6 +2606,7 @@
     document.getElementById("btn-new-tx").addEventListener("click", () => openTxModal(null));
     document.getElementById("btn-new-ingreso")?.addEventListener("click", () => openTxModal(null, "ingreso"));
     document.getElementById("btn-new-gasto")?.addEventListener("click", () => openTxModal(null, "gasto"));
+    document.getElementById("btn-new-transfer")?.addEventListener("click", () => openTransferModal());
     const btnAcc = document.getElementById("btn-new-account");
     if (btnAcc) btnAcc.addEventListener("click", () => openAccountModal(null));
     document.getElementById("btn-new-loan")?.addEventListener("click", openLoanModal);
