@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.26";
+  const APP_VERSION = "1.12.27";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -528,8 +528,9 @@
    * (tarjetas y préstamos). Los abonos bajan deuda; los cobros bajan
    * "te deben" y suben la cuenta destino.
    */
+  /** Me queda = dinero en cuentas − tarjetas − préstamos que debo (sin sumar “te deben”). */
   function netWorth() {
-    return totalAvailableMoney() + totalLoanOutstanding() - totalCreditDebt();
+    return totalAvailableMoney() - totalCreditDebt();
   }
 
   function accountById(id) {
@@ -1489,12 +1490,10 @@
     const totalEl = document.getElementById("accounts-total");
     if (!chips) return;
     const assetsOnly = totalAvailableMoney();
-    const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    const capital = assetsOnly + owedToMe;
-    const balance = capital - debt;
+    const meQueda = assetsOnly - debt;
     if (totalEl) {
-      totalEl.textContent = `Capital ${formatMXN(capital)} · A deber ${formatMXN(debt)} · Balance ${formatMXN(balance)}`;
+      totalEl.textContent = `Tienes ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
     }
     chips.innerHTML = "";
     if (!state.accounts.length) {
@@ -2101,25 +2100,18 @@
     const assets = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    const capital = assets + owedToMe;
-    const balance = capital - debtTotal;
+    // Me queda = lo que tienes − deudas − préstamos que debes
+    const meQueda = assets - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
-    if (assetsEl) assetsEl.textContent = formatMXN(capital);
+    if (assetsEl) assetsEl.textContent = formatMXN(assets);
     const assetsHint = document.getElementById("fin-assets-hint");
-    if (assetsHint) {
-      assetsHint.textContent = owedToMe > 0
-        ? `Cuentas ${formatMXN(assets)} + te deben ${formatMXN(owedToMe)}`
-        : `En cuentas ${formatMXN(assets)}`;
-    }
+    if (assetsHint) assetsHint.textContent = "Efectivo + bancos + ahorros";
     const creditDebtEl = document.getElementById("fin-credit-debt");
-    if (creditDebtEl) {
-      // Como en Money Manager: a deber en negativo
-      creditDebtEl.textContent = debtTotal > 0 ? formatMXN(-debtTotal) : formatMXN(0);
-    }
+    if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
     const balEl = document.getElementById("fin-balance");
     if (balEl) {
-      balEl.textContent = formatMXN(balance);
-      balEl.classList.toggle("neg-net", balance < 0);
+      balEl.textContent = formatMXN(meQueda);
+      balEl.classList.toggle("neg-net", meQueda < 0);
     }
     const ingEl = document.getElementById("fin-ingresos");
     if (ingEl) ingEl.textContent = formatMXN(ingresos);
@@ -2128,7 +2120,7 @@
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(owedToMe);
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = "Balance";
+    if (balLabel) balLabel.textContent = "Me queda";
     // breakdown list removed from UI; keep no-op safe
     if (typeof renderDebtBreakdown === "function") {
       const list = document.getElementById("fin-debt-breakdown");
