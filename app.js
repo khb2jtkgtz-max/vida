@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.19";
+  const APP_VERSION = "1.12.20";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -50,8 +50,10 @@
     { group: "Bancos", name: "Scotiabank", type: "debito", color: "#ec111a", icon: "🏦" },
     { group: "Bancos", name: "Citibanamex", type: "debito", color: "#056dae", icon: "🏦" },
     { group: "Bancos", name: "Nu", type: "debito", color: "#820ad1", icon: "💜" },
+    { group: "Bancos", name: "Hey Banco", type: "debito", color: "#00c2a8", icon: "🏦" },
     { group: "Tarjetas", name: "Amex", type: "credito", color: "#006fcf", icon: "💳" },
     { group: "Tarjetas", name: "Like U", type: "credito", color: "#7c3aed", icon: "💳" },
+    { group: "Tarjetas", name: "Hey Banco", type: "credito", color: "#00c2a8", icon: "💳" },
     { group: "Tarjetas", name: "Santander Free", type: "credito", color: "#ec0000", icon: "💳" },
     { group: "Tarjetas", name: "BBVA Aqua", type: "credito", color: "#00a3e0", icon: "💳" },
     { group: "Tarjetas", name: "Nu tarjeta", type: "credito", color: "#820ad1", icon: "💳" },
@@ -1692,7 +1694,7 @@
         ${institutionPresetsHtml()}
         <div class="form-row">
           <label for="f-acc-name">Nombre</label>
-          <input id="f-acc-name" name="name" required maxlength="60" value="${acc ? escapeAttr(acc.name) : ""}" placeholder="Ej. Santander, Amex, Like U" />
+          <input id="f-acc-name" name="name" required maxlength="60" value="${acc ? escapeAttr(acc.name) : ""}" placeholder="Ej. Santander, Amex, Like U, Hey Banco" />
           <input type="hidden" name="institution" id="f-acc-institution" value="${escapeAttr(institution)}" />
         </div>
         <div class="form-row">
