@@ -1952,3 +1952,34 @@ a { color: var(--primary); }
 
 .btn-tx-ingreso:active,
 .btn-tx-gasto:active { transform: scale(0.98); opacity: 0.92; }
+
+
+.check-row { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+.msi-active-card { margin-bottom: 1rem; }
+.msi-active-list { list-style: none; margin: 0; padding: 0; }
+.msi-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--separator);
+}
+.msi-row:last-child { border-bottom: none; }
+.msi-row-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.msi-row-meta {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.msi-row-meta strong {
+  display: block;
+  font-family: var(--mono);
+  color: var(--warn);
+  font-size: 0.95rem;
+}
+.msi-row-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
