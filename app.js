@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.11";
+  const APP_VERSION = "1.12.12";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -756,7 +756,7 @@
     sheet.querySelectorAll("[data-more-close]").forEach((el) => {
       el.addEventListener("click", closeMoreSheet);
     });
-    ["btn-update-app", "btn-export-backup", "btn-import-backup", "btn-wipe-seed"].forEach((id) => {
+    ["btn-update-app", "btn-export-backup", "btn-import-backup", "btn-wipe-seed", "btn-wipe-all"].forEach((id) => {
       document.getElementById(id)?.addEventListener("click", () => {
         // keep import flow open until file picked; others close sheet
         if (id !== "btn-import-backup") closeMoreSheet();
@@ -3331,6 +3331,95 @@
     });
   }
 
+
+  function emptyFreshState() {
+    const now = Date.now();
+    const efectivoId = uid();
+    return {
+      seeded: false,
+      deleted: state.deleted || { habits: {}, projects: {}, accounts: {}, transactions: {}, loans: {}, tasks: {}, habitMarks: {}, missedDays: {} },
+      habits: [],
+      habitMarks: {},
+      categories: {
+        ingreso: [...DEFAULT_CATEGORIES.ingreso],
+        gasto: [...DEFAULT_CATEGORIES.gasto, "Pago de tarjeta"]
+      },
+      accounts: [{
+        id: efectivoId,
+        name: "Efectivo",
+        type: "efectivo",
+        color: "#34C759",
+        icon: "💵",
+        openingBalance: 0,
+        institution: null,
+        creditLimit: null,
+        cutoffDay: null,
+        paymentDueDay: null,
+        updatedAt: now
+      }],
+      transactions: [],
+      projects: [],
+      loans: [],
+      updatedAt: now
+    };
+  }
+
+  async function wipeAllData() {
+    const ok = await confirmAction(
+      "Empezar de cero",
+      "¿Borrar TODOS los hábitos, finanzas y proyectos de este dispositivo y de la nube (código de sync)? No se puede deshacer. Guarda un respaldo antes si lo necesitas.",
+      "Borrar todo"
+    );
+    if (!ok) return;
+    const now = Date.now();
+    if (!state.deleted || typeof state.deleted !== "object") state.deleted = {};
+    ["habits", "projects", "accounts", "transactions", "loans", "tasks", "habitMarks", "missedDays"].forEach((k) => {
+      if (!state.deleted[k] || typeof state.deleted[k] !== "object") state.deleted[k] = {};
+    });
+    (state.habits || []).forEach((h) => { if (h && h.id) markDeleted("habits", h.id); });
+    (state.accounts || []).forEach((a) => { if (a && a.id) markDeleted("accounts", a.id); });
+    (state.transactions || []).forEach((tx) => { if (tx && tx.id) markDeleted("transactions", tx.id); });
+    (state.loans || []).forEach((l) => { if (l && l.id) markDeleted("loans", l.id); });
+    (state.projects || []).forEach((p) => {
+      if (!p) return;
+      if (p.id) markDeleted("projects", p.id);
+      (p.tasks || []).forEach((task) => {
+        if (task && task.id) markDeleted("tasks", task.id);
+        Object.keys(task && task.missedDays || {}).forEach((ds) => markDeleted("missedDays", task.id + ":" + ds));
+      });
+      Object.keys(p.missedDays || {}).forEach((ds) => markDeleted("missedDays", p.id + ":" + ds));
+    });
+    Object.keys(state.habitMarks || {}).forEach((k) => markDeleted("habitMarks", k));
+
+    const keptDeleted = state.deleted;
+    state = emptyFreshState();
+    state.deleted = keptDeleted;
+    state.updatedAt = now;
+    // bump all tombstone times
+    Object.keys(state.deleted).forEach((kind) => {
+      Object.keys(state.deleted[kind] || {}).forEach((id) => {
+        state.deleted[kind][id] = Math.max(Number(state.deleted[kind][id] || 0), now);
+      });
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.removeItem(SEED_FLAG);
+    selectedHabitId = null;
+    selectedProjectId = null;
+    renderAll();
+    updateWipeSeedVisibility();
+    toast("Todo borrado · empezando de cero");
+    if (syncId) {
+      try {
+        await pushRemote(exportStateBlob());
+        setSyncStatus("synced");
+        toast("Nube vaciada · listo para cargar estados de cuenta");
+      } catch (e) {
+        setSyncStatus("error", e.message || String(e));
+        toast("Borrado local OK, pero falló subir a la nube: " + (e.message || e));
+      }
+    }
+  }
+
   async function wipeSeed() {
     if (!hasSeedData()) {
       toast("No hay datos de ejemplo que borrar");
@@ -3598,6 +3687,7 @@
     initBackupUI();
     document.getElementById("btn-wipe-seed")?.addEventListener("click", () => { wipeSeed(); });
     document.getElementById("btn-wipe-seed-footer")?.addEventListener("click", () => { wipeSeed(); });
+    document.getElementById("btn-wipe-all")?.addEventListener("click", () => { wipeAllData(); });
     updateWipeSeedVisibility();
     document.getElementById("btn-import-mm")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
     document.getElementById("btn-import-mm-footer")?.addEventListener("click", () => importMoneyManagerBundle({ quiet: false }));
