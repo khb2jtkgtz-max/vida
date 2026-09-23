@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.12";
+  const APP_VERSION = "1.12.13";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -294,6 +294,7 @@
       if (a.creditLimit === undefined) { a.creditLimit = null; changed = true; }
       if (a.cutoffDay === undefined) { a.cutoffDay = null; changed = true; }
       if (a.paymentDueDay === undefined) { a.paymentDueDay = null; changed = true; }
+      if (a.amountDue === undefined) { a.amountDue = null; changed = true; }
       if (a.nextStatementDate === undefined) { a.nextStatementDate = null; changed = true; }
       if (a.nextPaymentDate === undefined) { a.nextPaymentDate = null; changed = true; }
       // Normalize day fields when present
@@ -527,6 +528,16 @@
   }
 
   /** Deuda de tarjeta: gastos bajan el saldo; saldo negativo = debe. */
+
+  /** Monto a pagar indicado en la tarjeta (corte/vencido); si no hay, null. */
+  function creditAmountDue(accOrId) {
+    const acc = typeof accOrId === "string" ? accountById(accOrId) : accOrId;
+    if (!acc || acc.type !== "credito") return null;
+    const n = Number(acc.amountDue);
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+    return null;
+  }
+
   function creditDebtAmount(accOrId) {
     const acc = typeof accOrId === "string" ? accountById(accOrId) : accOrId;
     if (!acc) return 0;
@@ -1314,8 +1325,11 @@
       const debt = isCredit ? creditDebtAmount(a) : 0;
       const payInfo = isCredit ? creditPaymentInfo(a) : null;
       const balClass = isCredit ? "debt" : (bal < 0 ? "neg" : "");
+      const duePayChip = isCredit ? creditAmountDue(a) : null;
       const balText = isCredit
-        ? `Deuda: ${formatMXN(debt)}`
+        ? (duePayChip != null
+          ? `Pagar: ${formatMXN(duePayChip)} · Deuda: ${formatMXN(debt)}`
+          : `Deuda: ${formatMXN(debt)}`)
         : formatMXN(bal);
       let payHtml = "";
       if (payInfo) {
@@ -1376,11 +1390,15 @@
     strip.classList.remove("hidden");
     strip.innerHTML = alerts.map(({ acc, info }) => {
       const kind = info.overdue ? "overdue" : "soon";
+      const duePay = creditAmountDue(acc);
+      const moneyBit = duePay != null
+        ? `Pagar ${formatMXN(duePay)}` + (info.debt > 0 ? ` · Deuda total ${formatMXN(info.debt)}` : "")
+        : `Deuda ${formatMXN(info.debt)}`;
       const label = info.overdue
-        ? `⚠️ ${escapeHtml(acc.name)}: pago vencido (${escapeHtml(formatDayMonth(info.dueDate))}) · Deuda ${formatMXN(info.debt)}`
+        ? `⚠️ ${escapeHtml(acc.name)}: pago vencido (${escapeHtml(formatDayMonth(info.dueDate))}) · ${moneyBit}`
         : info.daysLeft === 0
-          ? `⏰ ${escapeHtml(acc.name)}: pago hoy · Deuda ${formatMXN(info.debt)}`
-          : `⏰ ${escapeHtml(acc.name)}: pago en ${info.daysLeft} día${info.daysLeft === 1 ? "" : "s"} (${escapeHtml(formatDayMonth(info.dueDate))}) · Deuda ${formatMXN(info.debt)}`;
+          ? `⏰ ${escapeHtml(acc.name)}: pago hoy · ${moneyBit}`
+          : `⏰ ${escapeHtml(acc.name)}: pago en ${info.daysLeft} día${info.daysLeft === 1 ? "" : "s"} (${escapeHtml(formatDayMonth(info.dueDate))}) · ${moneyBit}`;
       return `<button type="button" class="payment-alert ${kind} has-pay-link" data-account-id="${escapeAttr(acc.id)}">
         <span class="payment-alert-text">${label}</span>
         <span class="payment-alert-cta">Pagar →</span>
@@ -1410,8 +1428,9 @@
   function openCreditPayModal(acc) {
     if (!acc || acc.type !== "credito") return;
     const debt = creditDebtAmount(acc);
-    if (!(debt > 0)) {
-      toast("Esta tarjeta no tiene deuda registrada");
+    const indicated = creditAmountDue(acc);
+    if (!(debt > 0) && !(indicated > 0)) {
+      toast("Esta tarjeta no tiene deuda ni cantidad a pagar");
       return;
     }
     const funders = fundingAccountsForPay(acc.id);
@@ -1421,7 +1440,8 @@
       return;
     }
     ensurePayCategories();
-    const defaultAmt = Math.round(debt * 100) / 100;
+    const fullDebt = Math.round((debt || 0) * 100) / 100;
+    const defaultAmt = indicated != null ? indicated : fullDebt;
     const opts = funders.map((a) => {
       const bal = accountBalance(a.id);
       return `<option value="${escapeAttr(a.id)}">${escapeHtml((a.icon || "") + " " + a.name)} · ${formatMXN(bal)}</option>`;
@@ -1430,13 +1450,15 @@
       <div class="form-grid">
         <p class="field-hint">Registras el pago dentro de Vida: sale de tu cuenta y baja la deuda de <strong>${escapeHtml(acc.name)}</strong>.</p>
         <div class="form-row">
-          <label>Deuda actual</label>
-          <strong class="stat-value" style="font-size:1.25rem;color:var(--gasto)">${formatMXN(debt)}</strong>
+          <label>Deuda total</label>
+          <strong class="stat-value" style="font-size:1.25rem;color:var(--gasto)">${formatMXN(fullDebt)}</strong>
         </div>
+        ${indicated != null ? `<div class="form-row"><label>Cantidad a pagar (indicada)</label><strong style="color:var(--warn)">${formatMXN(indicated)}</strong></div>` : `<p class="field-hint">Tip: en la tarjeta puedes poner la <strong>cantidad a pagar</strong> del corte para no usar toda la deuda.</p>`}
         <div class="form-row">
           <label for="f-pay-amount">Monto a pagar (MXN)</label>
           <input id="f-pay-amount" name="amount" type="number" step="0.01" min="0.01" required value="${escapeAttr(String(defaultAmt))}" />
           <div class="toolbar-right" style="margin-top:0.35rem;gap:0.35rem">
+            ${indicated != null ? `<button type="button" class="btn-ghost btn-sm" id="f-pay-indicated">Pago indicado</button>` : ""}
             <button type="button" class="btn-ghost btn-sm" id="f-pay-full">Toda la deuda</button>
           </div>
         </div>
@@ -1493,6 +1515,12 @@
         _creditPayPair: pairId,
         _creditPayRole: "to"
       });
+      // Baja la cantidad a pagar indicada (no fuerza liquidar toda la deuda)
+      if (acc.amountDue != null) {
+        const left = Math.round((Number(acc.amountDue) - amount) * 100) / 100;
+        acc.amountDue = left > 0 ? left : null;
+        acc.updatedAt = Date.now();
+      }
       saveState();
       const ym = date.slice(0, 7);
       const monthEl = document.getElementById("fin-month");
@@ -1503,7 +1531,11 @@
     }, { submitLabel: "Registrar pago" });
     document.getElementById("f-pay-full")?.addEventListener("click", () => {
       const inp = document.getElementById("f-pay-amount");
-      if (inp) inp.value = String(defaultAmt);
+      if (inp) inp.value = String(fullDebt > 0 ? fullDebt : defaultAmt);
+    });
+    document.getElementById("f-pay-indicated")?.addEventListener("click", () => {
+      const inp = document.getElementById("f-pay-amount");
+      if (inp && indicated != null) inp.value = String(indicated);
     });
   }
 
@@ -1534,6 +1566,7 @@
     const creditLimit = acc && acc.creditLimit != null ? acc.creditLimit : "";
     const cutoffDay = acc && acc.cutoffDay != null ? acc.cutoffDay : "";
     const paymentDueDay = acc && acc.paymentDueDay != null ? acc.paymentDueDay : "";
+    const amountDue = acc && acc.amountDue != null ? acc.amountDue : "";
     const institution = acc && acc.institution ? acc.institution : "";
     return `
       <div class="form-grid">
@@ -1566,6 +1599,11 @@
               <label for="f-acc-due">Día de pago (1–28)</label>
               <input id="f-acc-due" name="paymentDueDay" type="number" min="1" max="28" step="1" value="${escapeAttr(String(paymentDueDay))}" placeholder="Ej. 3" />
             </div>
+          </div>
+          <div class="form-row">
+            <label for="f-acc-amountdue">Cantidad a pagar (vencida / del corte)</label>
+            <input id="f-acc-amountdue" name="amountDue" type="number" step="0.01" min="0" value="${escapeAttr(String(amountDue))}" placeholder="Ej. 2500.00" />
+            <p class="field-hint">Es el pago que te pide el banco este periodo, no toda la deuda de la tarjeta. Al tocar Pagar se usa este monto.</p>
           </div>
           <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
         </div>
@@ -1639,6 +1677,7 @@
         creditLimit: null,
         cutoffDay: null,
         paymentDueDay: null,
+        amountDue: null,
         payUrl: null,
         nextStatementDate: acc && acc.nextStatementDate ? acc.nextStatementDate : null,
         nextPaymentDate: acc && acc.nextPaymentDate ? acc.nextPaymentDate : null
@@ -1648,6 +1687,8 @@
         data.creditLimit = Number.isFinite(lim) && lim >= 0 ? lim : null;
         data.cutoffDay = clampDayOfMonth(fd.get("cutoffDay"));
         data.paymentDueDay = clampDayOfMonth(fd.get("paymentDueDay"));
+        const dueAmt = parseFloat(fd.get("amountDue"));
+        data.amountDue = Number.isFinite(dueAmt) && dueAmt > 0 ? Math.round(dueAmt * 100) / 100 : null;
         data.payUrl = normalizePayUrl(fd.get("payUrl"));
       }
       if (acc) {
