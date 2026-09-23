@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.24";
+  const APP_VERSION = "1.12.25";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2019,6 +2019,8 @@
     const net = assets + owedToMe - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
     if (assetsEl) assetsEl.textContent = formatMXN(assets);
+    const assetsHint = document.getElementById("fin-assets-hint");
+    if (assetsHint) assetsHint.textContent = `En cuentas: ${formatMXN(assets)}`;
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
     const balEl = document.getElementById("fin-balance");
@@ -2026,19 +2028,14 @@
       balEl.textContent = formatMXN(net);
       balEl.classList.toggle("neg-net", net < 0);
     }
-    document.getElementById("fin-ingresos").textContent = formatMXN(ingresos);
-    document.getElementById("fin-gastos").textContent = formatMXN(gastos);
+    const ingEl = document.getElementById("fin-ingresos");
+    if (ingEl) ingEl.textContent = formatMXN(ingresos);
+    const gasEl = document.getElementById("fin-gastos");
+    if (gasEl) gasEl.textContent = formatMXN(gastos);
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(owedToMe);
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = "Neto (cuentas + te deben − debes)";
-    const ingLabel = document.getElementById("fin-ingresos-label");
-    if (ingLabel) {
-      const ym = finMonthValue();
-      const [y, m] = ym.split("-");
-      const mes = MONTHS_SHORT_ES[Math.max(0, (parseInt(m, 10) || 1) - 1)] || "";
-      ingLabel.textContent = accountFilter === "all" ? `Ingresos (${mes} ${y})` : "Ingresos (filtro)";
-    }
+    if (balLabel) balLabel.textContent = "Total general";
     renderDebtBreakdown();
 
     let listTxs = txs;

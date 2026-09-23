@@ -591,7 +591,34 @@ a { color: var(--primary); }
 .leg-empty { background: rgba(255,255,255,0.04); }
 
 /* Finanzas */
+.fin-dashboard-simple {
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.fin-total-general .stat-value {
+  font-size: 1.45rem;
+}
+.stat-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.fin-month-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  margin: 0 0 0.85rem;
+}
+.fin-month-flow strong {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 600;
+}
 .fin-dashboard {
+
   display: grid;
   grid-template-columns: repeat(3, minmax(140px, 1fr));
   gap: 0.55rem;
@@ -1663,7 +1690,34 @@ a { color: var(--primary); }
   .proyectos-layout {
     grid-template-columns: 1fr;
   }
-  .fin-dashboard { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+  .fin-dashboard-simple {
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.fin-total-general .stat-value {
+  font-size: 1.45rem;
+}
+.stat-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.fin-month-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  margin: 0 0 0.85rem;
+}
+.fin-month-flow strong {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 600;
+}
+.fin-dashboard {
+ grid-template-columns: repeat(2, minmax(140px, 1fr)); }
   .gantt-header, .gantt-row {
     grid-template-columns: 100px repeat(var(--cols), minmax(40px, 1fr));
   }
@@ -1671,7 +1725,34 @@ a { color: var(--primary); }
   .form-row-inline { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-  .fin-dashboard {
+  .fin-dashboard-simple {
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+.fin-total-general .stat-value {
+  font-size: 1.45rem;
+}
+.stat-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.fin-month-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  margin: 0 0 0.85rem;
+}
+.fin-month-flow strong {
+  font-family: var(--mono);
+  color: var(--text);
+  font-weight: 600;
+}
+.fin-dashboard {
+
     grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
   .loans-list { grid-template-columns: 1fr; }

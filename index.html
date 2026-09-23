@@ -110,32 +110,29 @@
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
-        <div class="fin-dashboard">
-          <div class="stat-card card assets">
-            <span class="stat-label">Dinero en cuentas</span>
-            <strong id="fin-assets" class="stat-value">$0.00</strong>
+        <div class="fin-dashboard fin-dashboard-simple">
+          <div class="stat-card card balance fin-total-general">
+            <span class="stat-label" id="fin-balance-label">Total general</span>
+            <strong id="fin-balance" class="stat-value">$0.00</strong>
+            <span class="stat-hint" id="fin-assets-hint">Cuentas $0</span>
           </div>
           <div class="stat-card card debt-owe">
-            <span class="stat-label">Total que debes</span>
+            <span class="stat-label">Cuánto debes</span>
             <strong id="fin-credit-debt" class="stat-value">$0.00</strong>
           </div>
-          <div class="stat-card card balance">
-            <span class="stat-label" id="fin-balance-label">Neto (cuentas + te deben − debes)</span>
-            <strong id="fin-balance" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card ingreso">
-            <span class="stat-label" id="fin-ingresos-label">Ingresos del mes</span>
-            <strong id="fin-ingresos" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card gasto">
-            <span class="stat-label">Gastos del mes</span>
-            <strong id="fin-gastos" class="stat-value">$0.00</strong>
-          </div>
           <div class="stat-card card loan">
-            <span class="stat-label">Total que te deben</span>
+            <span class="stat-label">Cuánto te deben</span>
             <strong id="fin-loans-total" class="stat-value">$0.00</strong>
           </div>
         </div>
+        <p class="fin-month-flow muted" id="fin-month-flow">
+          <span>Mes: ingresos <strong id="fin-ingresos">$0.00</strong></span>
+          <span>·</span>
+          <span>gastos <strong id="fin-gastos">$0.00</strong></span>
+        </p>
+        <!-- keep hidden assets id for JS compatibility -->
+        <span id="fin-assets" class="hidden" aria-hidden="true">$0.00</span>
+        <span id="fin-ingresos-label" class="hidden" aria-hidden="true"></span>
         <div class="card fin-debt-breakdown-card">
           <div class="card-head">
             <h3>Deuda por tarjeta / préstamo</h3>
