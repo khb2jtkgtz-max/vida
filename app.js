@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.17";
+  const APP_VERSION = "1.12.18";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1432,21 +1432,31 @@
       } else if (isCredit) {
         payHtml = `<span class="account-chip-pay muted">Sin fecha de pago</span>`;
       }
-      const card = document.createElement("button");
-      card.type = "button";
+      const canPay = isCredit && (debt > 0 || duePayChip != null);
+      const card = document.createElement("div");
       card.className = "account-chip" + (isCredit ? " credit" : "");
       card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
-      card.title = "Editar cuenta";
       card.innerHTML = `
-        <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
-        <span class="account-chip-body">
-          <strong>${escapeHtml(a.name)}</strong>
-          <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
-          <span class="account-chip-bal ${balClass}">${balText}</span>
-          ${payHtml}
-        </span>
+        <button type="button" class="account-chip-main" title="Editar cuenta">
+          <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
+          <span class="account-chip-body">
+            <strong>${escapeHtml(a.name)}</strong>
+            <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
+            <span class="account-chip-bal ${balClass}">${balText}</span>
+            ${payHtml}
+          </span>
+        </button>
+        ${canPay ? `<button type="button" class="account-chip-pay-btn" data-pay-id="${escapeAttr(a.id)}" title="Pagar tarjeta">Pagar</button>` : ""}
       `;
-      card.addEventListener("click", () => openAccountModal(a));
+      card.querySelector(".account-chip-main").addEventListener("click", () => openAccountModal(a));
+      const payBtn = card.querySelector(".account-chip-pay-btn");
+      if (payBtn) {
+        payBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openCreditPayModal(a);
+        });
+      }
       chips.appendChild(card);
     });
     // refresh account filter options
@@ -1542,23 +1552,24 @@
     }).join("");
     const html = `
       <div class="form-grid">
-        <p class="field-hint">Registras el pago dentro de Vida: sale de tu cuenta y baja la deuda de <strong>${escapeHtml(acc.name)}</strong>.</p>
+        <p class="field-hint">Pagar tarjeta <strong>${escapeHtml(acc.name)}</strong>: eliges de qué cuenta sale el dinero; baja la deuda y queda registrado el movimiento.</p>
         <div class="form-row">
           <label>Deuda total</label>
           <strong class="stat-value" style="font-size:1.25rem;color:var(--gasto)">${formatMXN(fullDebt)}</strong>
         </div>
-        ${indicated != null ? `<div class="form-row"><label>Cantidad a pagar (indicada)</label><strong style="color:var(--warn)">${formatMXN(indicated)}</strong></div>` : `<p class="field-hint">Tip: en la tarjeta puedes poner la <strong>cantidad a pagar</strong> del corte para no usar toda la deuda.</p>`}
+        ${indicated != null ? `<div class="form-row"><label>Cantidad a pagar (del corte)</label><strong style="color:var(--warn)">${formatMXN(indicated)}</strong></div>` : `<p class="field-hint">Puedes pagar un abono o toda la deuda. Si editas la tarjeta y pones <strong>cantidad a pagar</strong> del corte, ese monto aparece aquí.</p>`}
         <div class="form-row">
           <label for="f-pay-amount">Monto a pagar (MXN)</label>
-          <input id="f-pay-amount" name="amount" type="number" step="0.01" min="0.01" required value="${escapeAttr(String(defaultAmt))}" />
+          <input id="f-pay-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" required value="${escapeAttr(String(defaultAmt))}" />
           <div class="toolbar-right" style="margin-top:0.35rem;gap:0.35rem">
-            ${indicated != null ? `<button type="button" class="btn-ghost btn-sm" id="f-pay-indicated">Pago indicado</button>` : ""}
+            ${indicated != null ? `<button type="button" class="btn-ghost btn-sm" id="f-pay-indicated">Del corte</button>` : ""}
             <button type="button" class="btn-ghost btn-sm" id="f-pay-full">Toda la deuda</button>
           </div>
         </div>
         <div class="form-row">
-          <label for="f-pay-from">Pagar desde</label>
+          <label for="f-pay-from">¿De qué cuenta sale el dinero?</label>
           <select id="f-pay-from" name="fromAccountId" required>${opts}</select>
+          <p class="field-hint">Efectivo, débito u otra cuenta (no otra tarjeta de crédito).</p>
         </div>
         <div class="form-row">
           <label for="f-pay-date">Fecha</label>
@@ -1569,8 +1580,8 @@
           <input id="f-pay-note" name="note" maxlength="120" placeholder="Ej. pago quincena" />
         </div>
       </div>`;
-    openModal("Pagar " + acc.name, html, (fd) => {
-      const amount = parseFloat(fd.get("amount"));
+    openModal("Pagar tarjeta · " + acc.name, html, (fd) => {
+      const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-pay-amount")?.value);
       if (!(amount > 0)) {
         toast("Monto inválido");
         return false;

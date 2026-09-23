@@ -732,7 +732,40 @@ a { color: var(--primary); }
 .account-chip-pay.soon { color: var(--warn); font-weight: 600; }
 .account-chip-pay.overdue { color: var(--gasto); font-weight: 600; }
 .account-chip-pay.muted { opacity: 0.75; }
-.account-chip.credit { align-items: flex-start; }
+.account-chip.credit { align-items: stretch; }
+.account-chip-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.account-chip-pay-btn {
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.account-chip-pay-btn:hover,
+.account-chip-pay-btn:active {
+  background: color-mix(in srgb, var(--primary) 38%, transparent);
+}
 
 .payment-alerts {
   display: flex;
