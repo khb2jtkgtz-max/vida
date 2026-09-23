@@ -795,6 +795,7 @@ a { color: var(--primary); }
   gap: 0.75rem;
   flex: 1;
   min-width: 0;
+  width: 100%;
   text-align: left;
   padding: 0;
   margin: 0;
@@ -803,20 +804,37 @@ a { color: var(--primary); }
   color: inherit;
   cursor: pointer;
   font: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
-.account-chip-pay-btn {
+.account-chip-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
   flex-shrink: 0;
   align-self: center;
-  margin-left: 0.35rem;
+}
+.account-chip-edit-btn,
+.account-chip-pay-btn {
+  flex-shrink: 0;
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent);
-  background: color-mix(in srgb, var(--primary) 22%, transparent);
-  color: var(--text);
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  color: var(--text);
+}
+.account-chip-edit-btn {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+}
+.account-chip-pay-btn {
+  border: 1px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.account-chip-edit-btn:hover,
+.account-chip-edit-btn:active {
+  background: rgba(255, 255, 255, 0.12);
 }
 .account-chip-pay-btn:hover,
 .account-chip-pay-btn:active {

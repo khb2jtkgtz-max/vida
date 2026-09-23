@@ -143,6 +143,17 @@
           <ul id="fin-debt-breakdown" class="fin-debt-breakdown"></ul>
           <p id="fin-debt-empty" class="empty-hint hidden">No hay tarjetas ni préstamos por pagar.</p>
         </div>
+        <div class="card cuentas-section">
+          <div class="card-head">
+            <div>
+              <h3>Cuentas</h3>
+              <p class="muted loans-subtitle">Efectivo, bancos y más. Toca <strong>Editar</strong> para cambiar el saldo.</p>
+            </div>
+            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
+          </div>
+          <p id="accounts-total" class="accounts-total"></p>
+          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
+        </div>
         <div class="finanzas-layout">
           <div class="card">
             <div class="card-head">
@@ -166,14 +177,6 @@
             <div id="fin-chart" class="chart-bars"></div>
             <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
           </div>
-        </div>
-        <div class="card cuentas-section">
-          <div class="card-head">
-            <h3>Cuentas</h3>
-            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
-          </div>
-          <p id="accounts-total" class="accounts-total"></p>
-          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
         </div>
         <div class="card loans-section">
           <div class="card-head">

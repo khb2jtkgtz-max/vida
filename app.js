@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.23";
+  const APP_VERSION = "1.12.24";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -44,6 +44,7 @@
 
   /** Presets MX para chips al crear/editar cuenta (llenan nombre + tipo + color). */
   const INSTITUTION_PRESETS = [
+    { group: "Efectivo", name: "Efectivo", type: "efectivo", color: "#3ecf8e", icon: "💵" },
     { group: "Bancos", name: "Santander", type: "debito", color: "#ec0000", icon: "🏦" },
     { group: "Bancos", name: "BBVA", type: "debito", color: "#004481", icon: "🏦" },
     { group: "Bancos", name: "Banorte", type: "debito", color: "#eb0029", icon: "🏦" },
@@ -481,6 +482,13 @@
     const want = Math.max(0, Number(desiredDebt) || 0);
     const txNet = accountId ? accountTxNet(accountId) : 0;
     return Math.round((-want - txNet) * 100) / 100;
+  }
+
+  /** Saldo deseado en cuenta normal (efectivo/banco): opening + txNet = desired. */
+  function openingBalanceForTarget(accountId, desiredBalance) {
+    const want = Number(desiredBalance) || 0;
+    const txNet = accountId ? accountTxNet(accountId) : 0;
+    return Math.round((want - txNet) * 100) / 100;
   }
 
   function accountBalance(accountId) {
@@ -1499,9 +1507,17 @@
             ${payHtml}
           </span>
         </button>
-        ${canPay ? `<button type="button" class="account-chip-pay-btn" data-pay-id="${escapeAttr(a.id)}" title="Pagar tarjeta">Pagar</button>` : ""}
+        <div class="account-chip-actions">
+          <button type="button" class="account-chip-edit-btn" title="Editar">Editar</button>
+          ${canPay ? `<button type="button" class="account-chip-pay-btn" data-pay-id="${escapeAttr(a.id)}" title="Pagar">Pagar</button>` : ""}
+        </div>
       `;
-      card.querySelector(".account-chip-main").addEventListener("click", () => openAccountModal(a));
+      const openEdit = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        openAccountModal(a);
+      };
+      card.querySelector(".account-chip-main").addEventListener("click", openEdit);
+      card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
       const payBtn = card.querySelector(".account-chip-pay-btn");
       if (payBtn) {
         payBtn.addEventListener("click", (e) => {
@@ -1698,6 +1714,7 @@
   }
 
   function institutionPresetsHtml() {
+    const cash = INSTITUTION_PRESETS.filter((p) => p.group === "Efectivo");
     const banks = INSTITUTION_PRESETS.filter((p) => p.group === "Bancos");
     const cards = INSTITUTION_PRESETS.filter((p) => p.group === "Tarjetas");
     const debts = INSTITUTION_PRESETS.filter((p) => p.group === "Préstamos que debo");
@@ -1705,8 +1722,10 @@
       `<button type="button" class="preset-chip" data-name="${escapeAttr(p.name)}" data-type="${escapeAttr(p.type)}" data-color="${escapeAttr(p.color)}" data-icon="${escapeAttr(p.icon || "")}">${escapeHtml(p.name)}</button>`;
     return `
       <div class="form-row">
-        <label>Institución (atajos)</label>
+        <label>Atajos</label>
         <div class="preset-chips" id="f-acc-presets">
+          <span class="preset-group-label">Efectivo</span>
+          ${cash.map(chip).join("")}
           <span class="preset-group-label">Bancos</span>
           ${banks.map(chip).join("")}
           <span class="preset-group-label">Tarjetas</span>
@@ -1714,7 +1733,7 @@
           <span class="preset-group-label">Préstamos que debo</span>
           ${debts.map(chip).join("")}
         </div>
-        <p class="field-hint">Bancos y tarjetas, o un préstamo (banco o persona en efectivo). También puedes escribir el nombre abajo.</p>
+        <p class="field-hint">Elige Efectivo, un banco, tarjeta o préstamo, o escribe el nombre abajo.</p>
       </div>`;
   }
 
@@ -1735,7 +1754,7 @@
     const debtShown = isOwedForm && acc ? creditDebtAmount(acc) : null;
     const openingShown = isOwedForm
       ? (debtShown != null && debtShown > 0 ? debtShown : "")
-      : (acc ? acc.openingBalance : 0);
+      : (acc ? accountBalance(acc.id) : 0);
     return `
       <div class="form-grid">
         ${institutionPresetsHtml()}
@@ -1749,9 +1768,9 @@
           <select id="f-acc-type" name="type">${accountTypeOptionsHtml(type)}</select>
         </div>
         <div class="form-row">
-          <label for="f-acc-opening" id="f-acc-opening-label">${isOwedForm ? "Deuda total (MXN)" : "Saldo inicial (MXN)"}</label>
+          <label for="f-acc-opening" id="f-acc-opening-label">${isOwedForm ? "Deuda total (MXN)" : "Saldo actual (MXN)"}</label>
           <input id="f-acc-opening" name="openingBalance" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(String(openingShown))}" placeholder="${isOwedForm ? "Ej. 5000" : "0"}" />
-          <p class="field-hint" id="f-acc-opening-hint">${isDebtForm ? "Lo que debes (banco o persona). Ponlo en positivo. Nombre: quién te prestó (ej. Andy, Santander préstamo)." : (isCreditForm ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda." : "Saldo con el que empieza la cuenta.")}</p>
+          <p class="field-hint" id="f-acc-opening-hint">${isDebtForm ? "Lo que debes (banco o persona). Ponlo en positivo. Nombre: quién te prestó (ej. Andy, Santander préstamo)." : (isCreditForm ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda." : "Cuánto hay en esta cuenta ahora (ej. efectivo en la cartera).")}</p>
         </div>
         <div id="f-acc-credit-fields" class="credit-fields${type === "credito" ? "" : " hidden"}">
           <div class="form-row">
@@ -1797,7 +1816,7 @@
     const lab = form.querySelector("#f-acc-opening-label");
     const hint = form.querySelector("#f-acc-opening-hint");
     const opening = form.querySelector("#f-acc-opening");
-    if (lab) lab.textContent = isOwed ? "Deuda total (MXN)" : "Saldo inicial (MXN)";
+    if (lab) lab.textContent = isOwed ? "Deuda total (MXN)" : "Saldo actual (MXN)";
     if (hint) {
       hint.textContent = isDebt
         ? "Lo que debes (banco o persona). Ponlo en positivo. Nombre: quién te prestó."
@@ -1893,6 +1912,10 @@
         data.nextPaymentDate = null;
         let debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
         data.openingBalance = openingBalanceForCreditDebt(acc && acc.id, debtPos);
+      } else {
+        // El campo muestra el saldo actual; lo convertimos a openingBalance real
+        const target = openingBalance != null ? openingBalance : 0;
+        data.openingBalance = openingBalanceForTarget(acc && acc.id, target);
       }
       data.updatedAt = Date.now();
       if (acc) {
