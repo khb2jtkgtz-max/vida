@@ -1765,3 +1765,76 @@ a { color: var(--primary); }
   .panel-toolbar h2 { font-size: 1.05rem; }
   .stat-value { font-size: 1.05rem; }
 }
+
+
+/* Cuentas estilo Money Manager */
+.fin-dashboard-mm {
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+}
+.account-group {
+  margin-bottom: 0.75rem;
+}
+.account-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  padding: 0.35rem 16px 0.25rem;
+  margin: 0 -16px;
+}
+.account-group-head h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.account-group-sum {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.account-group-sum.debt { color: var(--gasto); }
+.account-group-credit-heads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.account-group-credit-heads strong {
+  font-family: var(--mono);
+  color: var(--gasto);
+  font-weight: 600;
+}
+.account-chip-body-mm {
+  grid-template-columns: 1fr auto;
+}
+.account-chip-dual {
+  display: flex;
+  gap: 0.75rem;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  text-align: right;
+}
+.account-chip-dual small {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.account-chip-dual b {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--gasto);
+}
+.dual-pagar b { color: var(--warn); }
+@media (max-width: 640px) {
+  .fin-dashboard-mm { grid-template-columns: 1fr; }
+  .fin-dashboard-mm .fin-total-general { order: 3; }
+}

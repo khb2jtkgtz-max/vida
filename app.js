@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.25";
+  const APP_VERSION = "1.12.26";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1454,81 +1454,166 @@
     return state.transactions.filter((t) => t.date.startsWith(ym));
   }
 
+  function accountGroupId(a) {
+    if (a.type === "efectivo") return "efectivo";
+    if (a.type === "debito") return "banco";
+    if (a.type === "credito") return "credito";
+    if (a.type === "deuda") return "deuda";
+    if (a.type === "ahorros" || a.type === "inversion") return "ahorro";
+    return "otro";
+  }
+
+  function accountGroupMeta(gid) {
+    const map = {
+      efectivo: { title: "Efectivo", order: 1 },
+      banco: { title: "Banco", order: 2 },
+      ahorro: { title: "Ahorro", order: 3 },
+      credito: { title: "Tarjetas de crédito", order: 4 },
+      deuda: { title: "Préstamos que debo", order: 5 },
+      otro: { title: "Otras", order: 6 }
+    };
+    return map[gid] || map.otro;
+  }
+
+  /** Saldo a pagar (corte) y saldo restante (deuda − corte). */
+  function creditPaySplit(acc) {
+    const debt = creditDebtAmount(acc);
+    const due = creditAmountDue(acc);
+    const aPagar = due != null ? due : 0;
+    const restante = Math.max(0, Math.round((debt - aPagar) * 100) / 100);
+    return { debt, aPagar, restante };
+  }
+
   function renderAccounts() {
     const chips = document.getElementById("accounts-chips");
     const totalEl = document.getElementById("accounts-total");
-    if (!chips || !totalEl) return;
-    const assets = totalAvailableMoney();
+    if (!chips) return;
+    const assetsOnly = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    const net = assets + owedToMe - debt;
-    totalEl.innerHTML = `Cuentas: <strong>${formatMXN(assets)}</strong> · Te deben: <strong>${formatMXN(owedToMe)}</strong> · Debes: <strong class="debt-total">${formatMXN(debt)}</strong> · Neto: <strong>${formatMXN(net)}</strong>`;
+    const capital = assetsOnly + owedToMe;
+    const balance = capital - debt;
+    if (totalEl) {
+      totalEl.textContent = `Capital ${formatMXN(capital)} · A deber ${formatMXN(debt)} · Balance ${formatMXN(balance)}`;
+    }
     chips.innerHTML = "";
     if (!state.accounts.length) {
-      chips.innerHTML = `<p class="empty-hint">Agrega tu primera cuenta.</p>`;
+      chips.innerHTML = `<p class="empty-hint">Agrega tu primera cuenta con + Cuenta.</p>`;
       renderPaymentAlerts();
       return;
     }
+
+    const groups = new Map();
     state.accounts.forEach((a) => {
-      const bal = accountBalance(a.id);
-      const meta = accountTypeMeta(a.type);
-      const isOwed = isOwedAccountType(a);
-      const isCredit = a.type === "credito";
-      const debt = isOwed ? creditDebtAmount(a) : 0;
-      const payInfo = isCredit ? creditPaymentInfo(a) : null;
-      const balClass = isOwed ? "debt" : (bal < 0 ? "neg" : "");
-      const duePayChip = isCredit ? creditAmountDue(a) : null;
-      const balText = isOwed
-        ? (duePayChip != null
-          ? `Pagar: ${formatMXN(duePayChip)} · Deuda: ${formatMXN(debt)}`
-          : `Deuda: ${formatMXN(debt)}`)
-        : formatMXN(bal);
-      let payHtml = "";
-      if (payInfo) {
-        const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
-        const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
-        payHtml = `<span class="account-chip-pay ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
-      } else if (a.type === "deuda") {
-        payHtml = `<span class="account-chip-pay muted">Préstamo que debes</span>`;
-      } else if (isCredit) {
-        payHtml = `<span class="account-chip-pay muted">Sin fecha de pago</span>`;
-      }
-      const canPay = isOwed && (debt > 0 || duePayChip != null);
-      const card = document.createElement("div");
-      card.className = "account-chip" + (isOwed ? " credit" : "");
-      card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
-      card.innerHTML = `
-        <button type="button" class="account-chip-main" title="Editar cuenta">
-          <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
-          <span class="account-chip-body">
-            <strong>${escapeHtml(a.name)}</strong>
-            <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
-            <span class="account-chip-bal ${balClass}">${balText}</span>
-            ${payHtml}
-          </span>
-        </button>
-        <div class="account-chip-actions">
-          <button type="button" class="account-chip-edit-btn" title="Editar">Editar</button>
-          ${canPay ? `<button type="button" class="account-chip-pay-btn" data-pay-id="${escapeAttr(a.id)}" title="Pagar">Pagar</button>` : ""}
-        </div>
-      `;
-      const openEdit = (e) => {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        openAccountModal(a);
-      };
-      card.querySelector(".account-chip-main").addEventListener("click", openEdit);
-      card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
-      const payBtn = card.querySelector(".account-chip-pay-btn");
-      if (payBtn) {
-        payBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openCreditPayModal(a);
-        });
-      }
-      chips.appendChild(card);
+      const gid = accountGroupId(a);
+      if (!groups.has(gid)) groups.set(gid, []);
+      groups.get(gid).push(a);
     });
-    // refresh account filter options
+    const ordered = [...groups.keys()].sort(
+      (a, b) => accountGroupMeta(a).order - accountGroupMeta(b).order
+    );
+
+    ordered.forEach((gid) => {
+      const list = groups.get(gid);
+      const metaG = accountGroupMeta(gid);
+      const section = document.createElement("div");
+      section.className = "account-group";
+
+      let groupTotalHtml = "";
+      if (gid === "credito") {
+        let sumPagar = 0, sumRest = 0;
+        list.forEach((a) => {
+          const s = creditPaySplit(a);
+          sumPagar += s.aPagar;
+          sumRest += s.restante;
+        });
+        groupTotalHtml = `
+          <div class="account-group-credit-heads">
+            <span>Saldo a pagar <strong>${formatMXN(sumPagar)}</strong></span>
+            <span>Saldo restante <strong>${formatMXN(sumRest)}</strong></span>
+          </div>`;
+      } else if (gid === "deuda") {
+        const sum = list.reduce((s, a) => s + creditDebtAmount(a), 0);
+        groupTotalHtml = `<span class="account-group-sum debt">${formatMXN(sum)}</span>`;
+      } else {
+        const sum = list.reduce((s, a) => s + accountBalance(a.id), 0);
+        groupTotalHtml = `<span class="account-group-sum">${formatMXN(sum)}</span>`;
+      }
+
+      section.innerHTML = `
+        <div class="account-group-head">
+          <h4>${escapeHtml(metaG.title)}</h4>
+          ${groupTotalHtml}
+        </div>
+        <div class="account-group-list"></div>`;
+      const listEl = section.querySelector(".account-group-list");
+
+      list.forEach((a) => {
+        const bal = accountBalance(a.id);
+        const meta = accountTypeMeta(a.type);
+        const isOwed = isOwedAccountType(a);
+        const isCredit = a.type === "credito";
+        const debtAmt = isOwed ? creditDebtAmount(a) : 0;
+        const canPay = isOwed && debtAmt > 0;
+        const card = document.createElement("div");
+        card.className = "account-chip" + (isOwed ? " credit" : "");
+        card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
+
+        let amountsHtml = "";
+        if (isCredit) {
+          const split = creditPaySplit(a);
+          amountsHtml = `
+            <span class="account-chip-dual">
+              <span class="dual-pagar"><small>A pagar</small><b>${formatMXN(split.aPagar)}</b></span>
+              <span class="dual-rest"><small>Restante</small><b>${formatMXN(split.restante)}</b></span>
+            </span>`;
+        } else if (a.type === "deuda") {
+          amountsHtml = `<span class="account-chip-bal debt">${formatMXN(debtAmt)}</span>`;
+        } else {
+          amountsHtml = `<span class="account-chip-bal ${bal < 0 ? "neg" : ""}">${formatMXN(bal)}</span>`;
+        }
+
+        const payInfo = isCredit ? creditPaymentInfo(a) : null;
+        let payHtml = "";
+        if (payInfo) {
+          const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
+          const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
+          payHtml = `<span class="account-chip-pay ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
+        }
+
+        card.innerHTML = `
+          <button type="button" class="account-chip-main" title="Editar cuenta">
+            <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
+            <span class="account-chip-body account-chip-body-mm">
+              <strong>${escapeHtml(a.name)}</strong>
+              <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
+              ${amountsHtml}
+              ${payHtml}
+            </span>
+          </button>
+          <div class="account-chip-actions">
+            <button type="button" class="account-chip-edit-btn" title="Editar">Editar</button>
+            ${canPay ? `<button type="button" class="account-chip-pay-btn" title="Pagar">Pagar</button>` : ""}
+          </div>`;
+        const openEdit = (e) => {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
+          openAccountModal(a);
+        };
+        card.querySelector(".account-chip-main").addEventListener("click", openEdit);
+        card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
+        const payBtn = card.querySelector(".account-chip-pay-btn");
+        if (payBtn) {
+          payBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openCreditPayModal(a);
+          });
+        }
+        listEl.appendChild(card);
+      });
+      chips.appendChild(section);
+    });
+
     const filt = document.getElementById("fin-filter-account");
     if (filt) {
       const prev = filt.value || "all";
@@ -2016,17 +2101,25 @@
     const assets = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    const net = assets + owedToMe - debtTotal;
+    const capital = assets + owedToMe;
+    const balance = capital - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
-    if (assetsEl) assetsEl.textContent = formatMXN(assets);
+    if (assetsEl) assetsEl.textContent = formatMXN(capital);
     const assetsHint = document.getElementById("fin-assets-hint");
-    if (assetsHint) assetsHint.textContent = `En cuentas: ${formatMXN(assets)}`;
+    if (assetsHint) {
+      assetsHint.textContent = owedToMe > 0
+        ? `Cuentas ${formatMXN(assets)} + te deben ${formatMXN(owedToMe)}`
+        : `En cuentas ${formatMXN(assets)}`;
+    }
     const creditDebtEl = document.getElementById("fin-credit-debt");
-    if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
+    if (creditDebtEl) {
+      // Como en Money Manager: a deber en negativo
+      creditDebtEl.textContent = debtTotal > 0 ? formatMXN(-debtTotal) : formatMXN(0);
+    }
     const balEl = document.getElementById("fin-balance");
     if (balEl) {
-      balEl.textContent = formatMXN(net);
-      balEl.classList.toggle("neg-net", net < 0);
+      balEl.textContent = formatMXN(balance);
+      balEl.classList.toggle("neg-net", balance < 0);
     }
     const ingEl = document.getElementById("fin-ingresos");
     if (ingEl) ingEl.textContent = formatMXN(ingresos);
@@ -2035,8 +2128,12 @@
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(owedToMe);
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = "Total general";
-    renderDebtBreakdown();
+    if (balLabel) balLabel.textContent = "Balance";
+    // breakdown list removed from UI; keep no-op safe
+    if (typeof renderDebtBreakdown === "function") {
+      const list = document.getElementById("fin-debt-breakdown");
+      if (list && !list.classList.contains("hidden")) renderDebtBreakdown();
+    }
 
     let listTxs = txs;
     if (typeFilter !== "all") listTxs = listTxs.filter((t) => t.type === typeFilter);
