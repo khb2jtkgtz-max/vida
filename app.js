@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.13";
+  const APP_VERSION = "1.12.14";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1294,6 +1294,28 @@
   }
 
   // ========== FINANZAS ==========
+  /** Acepta 2500, 2,500.00, 2500.50, 2.500,50, $2,500 */
+  function parseMoneyInput(raw) {
+    let s = String(raw ?? "").trim();
+    if (!s) return null;
+    s = s.replace(/[$\s]|MXN/gi, "");
+    if (!s) return null;
+    // europeo/MX: 1.234.567,89
+    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else if (s.includes(",") && s.includes(".")) {
+      // 1,234.56 (US) → quitar comas
+      if (s.lastIndexOf(".") > s.lastIndexOf(",")) s = s.replace(/,/g, "");
+      // 1.234,56 already handled; 1,234,56 rare
+      else s = s.replace(/\./g, "").replace(",", ".");
+    } else if (s.includes(",")) {
+      s = s.replace(",", ".");
+    }
+    const n = Number(s);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n * 100) / 100;
+  }
+
   function formatMXN(n) {
     return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n || 0);
   }
@@ -1602,7 +1624,7 @@
           </div>
           <div class="form-row">
             <label for="f-acc-amountdue">Cantidad a pagar (vencida / del corte)</label>
-            <input id="f-acc-amountdue" name="amountDue" type="number" step="0.01" min="0" value="${escapeAttr(String(amountDue))}" placeholder="Ej. 2500.00" />
+            <input id="f-acc-amountdue" name="amountDue" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(amountDue === "" || amountDue == null ? "" : String(amountDue))}" placeholder="Ej. 2500.50" />
             <p class="field-hint">Es el pago que te pide el banco este periodo, no toda la deuda de la tarjeta. Al tocar Pagar se usa este monto.</p>
           </div>
           <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
@@ -1663,7 +1685,7 @@
       const name = (fd.get("name") || "").trim();
       if (!name) return false;
       const type = fd.get("type") || "otro";
-      const openingBalance = parseFloat(fd.get("openingBalance"));
+      const openingBalance = parseMoneyInput(fd.get("openingBalance") ?? document.getElementById("f-acc-opening")?.value);
       const color = fd.get("color") || HABIT_COLORS[0];
       const icon = (fd.get("icon") || "").trim() || accountTypeMeta(type).icon;
       const institution = (fd.get("institution") || "").trim() || null;
@@ -1683,17 +1705,22 @@
         nextPaymentDate: acc && acc.nextPaymentDate ? acc.nextPaymentDate : null
       };
       if (type === "credito") {
-        const lim = parseFloat(fd.get("creditLimit"));
-        data.creditLimit = Number.isFinite(lim) && lim >= 0 ? lim : null;
-        data.cutoffDay = clampDayOfMonth(fd.get("cutoffDay"));
-        data.paymentDueDay = clampDayOfMonth(fd.get("paymentDueDay"));
-        const dueAmt = parseFloat(fd.get("amountDue"));
-        data.amountDue = Number.isFinite(dueAmt) && dueAmt > 0 ? Math.round(dueAmt * 100) / 100 : null;
+        const lim = parseMoneyInput(fd.get("creditLimit") ?? document.getElementById("f-acc-limit")?.value);
+        data.creditLimit = lim != null && lim >= 0 ? lim : null;
+        data.cutoffDay = clampDayOfMonth(fd.get("cutoffDay") ?? document.getElementById("f-acc-cutoff")?.value);
+        data.paymentDueDay = clampDayOfMonth(fd.get("paymentDueDay") ?? document.getElementById("f-acc-due")?.value);
+        const dueRaw = fd.get("amountDue");
+        const dueDom = document.getElementById("f-acc-amountdue")?.value;
+        const dueAmt = parseMoneyInput(dueRaw != null && String(dueRaw).trim() !== "" ? dueRaw : dueDom);
+        data.amountDue = dueAmt != null && dueAmt > 0 ? dueAmt : null;
         data.payUrl = normalizePayUrl(fd.get("payUrl"));
       }
+      data.updatedAt = Date.now();
       if (acc) {
         Object.assign(acc, data);
-        toast("Cuenta actualizada");
+        toast(data.amountDue != null
+          ? `Cuenta actualizada · pagar ${formatMXN(data.amountDue)}`
+          : "Cuenta actualizada");
       } else {
         state.accounts.push({ id: uid(), ...data });
         toast("Cuenta creada");
