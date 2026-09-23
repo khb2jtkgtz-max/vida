@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.16";
+  const APP_VERSION = "1.12.17";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -583,9 +583,13 @@
   }
 
   /**
-   * Próxima fecha de pago a partir de cutoffDay + paymentDueDay, o solo
-   * paymentDueDay / nextPaymentDate. Vencido solo si esa fecha ya pasó
-   * y aún hay cantidad a pagar o deuda.
+   * Fecha de pago / vencimiento.
+   * - "Cantidad a pagar" > 0 → hay corte pendiente: puede ir vencido o pronto.
+   * - Cantidad vacía/0 → este corte ya está saldado: solo muestra el próximo
+   *   ciclo (sin urgencia), aunque siga habiendo deuda revolvente.
+   * - Con día de corte + día de pago: ciclo real (corte 11 → pago 2 oct).
+   * - Sin corte: próxima fecha futura del día de pago (no marca vencido el
+   *   día pasado de este mes; hace falta el corte para eso).
    */
   function creditPaymentInfo(acc, from = new Date()) {
     if (!acc || acc.type !== "credito") return null;
@@ -594,47 +598,55 @@
     const cutDay = clampDayOfMonth(acc.cutoffDay);
     const debt = creditDebtAmount(acc);
     const amountDue = Number(acc.amountDue) || 0;
-    const stillOwes = amountDue > 0 || debt > 0;
+    const statementPending = amountDue > 0;
     let dueDate = null;
     let overdue = false;
 
     if (dueDay != null && cutDay != null) {
-      dueDate = creditCycleDueDate(today, cutDay, dueDay);
-      if (today.getTime() > dueDate.getTime() && stillOwes) {
-        overdue = true;
-      } else if (today.getTime() > dueDate.getTime() && !stillOwes) {
-        // Ya pagó: siguiente ciclo (corte de este mes o el que toque)
-        let nextCut = new Date(today.getFullYear(), today.getMonth(), cutDay);
-        if (nextCut.getTime() <= today.getTime()) {
-          nextCut = new Date(today.getFullYear(), today.getMonth() + 1, cutDay);
+      const cycleDue = creditCycleDueDate(today, cutDay, dueDay);
+      if (statementPending) {
+        dueDate = cycleDue;
+        overdue = today.getTime() > cycleDue.getTime();
+      } else {
+        // Corte saldado: si la fecha del ciclo aún no llega, esa es la referencia;
+        // si ya pasó, el siguiente ciclo (pago tras el próximo corte).
+        if (today.getTime() <= cycleDue.getTime()) {
+          dueDate = cycleDue;
+        } else {
+          let nextCut = new Date(today.getFullYear(), today.getMonth(), cutDay);
+          if (nextCut.getTime() <= today.getTime()) {
+            nextCut = new Date(today.getFullYear(), today.getMonth() + 1, cutDay);
+          }
+          let due = new Date(nextCut.getFullYear(), nextCut.getMonth(), dueDay);
+          if (due.getTime() <= nextCut.getTime()) {
+            due = new Date(nextCut.getFullYear(), nextCut.getMonth() + 1, dueDay);
+          }
+          dueDate = startOfLocalDay(due);
         }
-        // Si el corte de este mes ya pasó, el pago del ciclo actual ya se calculó;
-        // avanzar un mes desde el due vencido
-        dueDate = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, dueDay);
         overdue = false;
       }
     } else if (dueDay != null) {
-      const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-      if (today.getTime() > thisMonthDue.getTime() && stillOwes) {
-        overdue = true;
-        dueDate = thisMonthDue;
-      } else if (today.getTime() <= thisMonthDue.getTime()) {
-        dueDate = thisMonthDue;
-      } else {
-        dueDate = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+      // Sin corte: no inventar "vencido el 2 sep"; ir a la próxima fecha futura.
+      let candidate = new Date(today.getFullYear(), today.getMonth(), dueDay);
+      if (candidate.getTime() < today.getTime()) {
+        candidate = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
       }
+      dueDate = startOfLocalDay(candidate);
+      overdue = false;
     } else if (acc.nextPaymentDate) {
       const parsed = parseISO(String(acc.nextPaymentDate));
       if (!isNaN(parsed.getTime())) {
         dueDate = startOfLocalDay(parsed);
         if (dueDate.getTime() < today.getTime()) {
-          overdue = stillOwes;
-          if (!overdue) {
+          if (statementPending) {
+            overdue = true;
+          } else {
             const d = Math.min(28, dueDate.getDate());
             const rolled = new Date(today.getFullYear(), today.getMonth(), d);
             dueDate = rolled.getTime() >= today.getTime()
               ? rolled
               : new Date(today.getFullYear(), today.getMonth() + 1, d);
+            overdue = false;
           }
         }
       }
@@ -642,7 +654,7 @@
 
     if (!dueDate) return null;
     const daysLeft = daysBetween(today, dueDate);
-    return { dueDate, daysLeft, overdue, debt };
+    return { dueDate, daysLeft, overdue, debt, statementPending };
   }
 
 
@@ -685,6 +697,11 @@
       return n === 0
         ? `Vencido hoy (${when})`
         : `Vencido hace ${n} día${n === 1 ? "" : "s"} (${when})`;
+    }
+    if (!info.statementPending) {
+      if (info.daysLeft <= 0) return `Corte saldado · próximo ${when}`;
+      if (info.daysLeft === 1) return `Corte saldado · próximo ${when} (mañana)`;
+      return `Corte saldado · próximo ${when}`;
     }
     if (info.daysLeft === 0) return `Pago hoy (${when})`;
     if (info.daysLeft === 1) return `Próximo pago: ${when} (mañana)`;
@@ -1409,7 +1426,8 @@
         : formatMXN(bal);
       let payHtml = "";
       if (payInfo) {
-        const cls = payInfo.overdue ? "overdue" : (payInfo.daysLeft <= 7 ? "soon" : "");
+        const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
+        const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
         payHtml = `<span class="account-chip-pay ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
       } else if (isCredit) {
         payHtml = `<span class="account-chip-pay muted">Sin fecha de pago</span>`;
@@ -1452,7 +1470,7 @@
     state.accounts.forEach((a) => {
       if (a.type !== "credito") return;
       const info = creditPaymentInfo(a);
-      if (!info) return;
+      if (!info || !info.statementPending) return;
       if (info.overdue || info.daysLeft <= 7) {
         alerts.push({ acc: a, info });
       }
@@ -1684,7 +1702,7 @@
           <div class="form-row">
             <label for="f-acc-amountdue">Cantidad a pagar (vencida / del corte)</label>
             <input id="f-acc-amountdue" name="amountDue" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(amountDue === "" || amountDue == null ? "" : String(amountDue))}" placeholder="Ej. 2500.50" />
-            <p class="field-hint">Pago de este corte / vencido. La deuda total va arriba. Al tocar Pagar se usa este monto.</p>
+            <p class="field-hint">Monto del corte / vencido. Déjalo vacío si ya saldaste este periodo (aunque quede deuda). Al tocar Pagar se usa este monto.</p>
           </div>
           <p class="field-hint">Si el día de pago es anterior al de corte (ej. corte 11, pago 2), el vencimiento es el 2 del mes siguiente al corte.</p>
         </div>
@@ -1790,6 +1808,7 @@
         const dueAmt = parseMoneyInput(dueRaw != null && String(dueRaw).trim() !== "" ? dueRaw : dueDom);
         data.amountDue = dueAmt != null && dueAmt > 0 ? dueAmt : null;
         data.payUrl = normalizePayUrl(fd.get("payUrl"));
+        data.nextPaymentDate = null; // el ciclo corte+pago manda
         // El usuario escribe la deuda en positivo; la convertimos a saldo negativo real
         let debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
         data.openingBalance = openingBalanceForCreditDebt(acc && acc.id, debtPos);
