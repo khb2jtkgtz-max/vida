@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.15";
+  const APP_VERSION = "1.12.16";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -565,20 +565,57 @@
   }
 
   /**
-   * Próxima fecha de pago a partir de paymentDueDay (1–28) o nextPaymentDate.
-   * Si el día de pago de este mes ya pasó y aún hay deuda → vencido (overdue).
+   * Fecha de pago del estado abierto: último corte ≤ hoy, luego el primer
+   * día de pago estrictamente posterior al corte.
+   * Ej. corte 11 + pago 2 → tras el 11 sep, vence el 2 oct (no el 2 sep).
+   */
+  function creditCycleDueDate(from, cutDay, payDay) {
+    const today = startOfLocalDay(from);
+    let cut = new Date(today.getFullYear(), today.getMonth(), cutDay);
+    if (cut.getTime() > today.getTime()) {
+      cut = new Date(today.getFullYear(), today.getMonth() - 1, cutDay);
+    }
+    let due = new Date(cut.getFullYear(), cut.getMonth(), payDay);
+    if (due.getTime() <= cut.getTime()) {
+      due = new Date(cut.getFullYear(), cut.getMonth() + 1, payDay);
+    }
+    return startOfLocalDay(due);
+  }
+
+  /**
+   * Próxima fecha de pago a partir de cutoffDay + paymentDueDay, o solo
+   * paymentDueDay / nextPaymentDate. Vencido solo si esa fecha ya pasó
+   * y aún hay cantidad a pagar o deuda.
    */
   function creditPaymentInfo(acc, from = new Date()) {
     if (!acc || acc.type !== "credito") return null;
     const today = startOfLocalDay(from);
     const dueDay = clampDayOfMonth(acc.paymentDueDay);
+    const cutDay = clampDayOfMonth(acc.cutoffDay);
     const debt = creditDebtAmount(acc);
+    const amountDue = Number(acc.amountDue) || 0;
+    const stillOwes = amountDue > 0 || debt > 0;
     let dueDate = null;
     let overdue = false;
 
-    if (dueDay != null) {
+    if (dueDay != null && cutDay != null) {
+      dueDate = creditCycleDueDate(today, cutDay, dueDay);
+      if (today.getTime() > dueDate.getTime() && stillOwes) {
+        overdue = true;
+      } else if (today.getTime() > dueDate.getTime() && !stillOwes) {
+        // Ya pagó: siguiente ciclo (corte de este mes o el que toque)
+        let nextCut = new Date(today.getFullYear(), today.getMonth(), cutDay);
+        if (nextCut.getTime() <= today.getTime()) {
+          nextCut = new Date(today.getFullYear(), today.getMonth() + 1, cutDay);
+        }
+        // Si el corte de este mes ya pasó, el pago del ciclo actual ya se calculó;
+        // avanzar un mes desde el due vencido
+        dueDate = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, dueDay);
+        overdue = false;
+      }
+    } else if (dueDay != null) {
       const thisMonthDue = new Date(today.getFullYear(), today.getMonth(), dueDay);
-      if (today.getTime() > thisMonthDue.getTime() && debt > 0) {
+      if (today.getTime() > thisMonthDue.getTime() && stillOwes) {
         overdue = true;
         dueDate = thisMonthDue;
       } else if (today.getTime() <= thisMonthDue.getTime()) {
@@ -591,9 +628,8 @@
       if (!isNaN(parsed.getTime())) {
         dueDate = startOfLocalDay(parsed);
         if (dueDate.getTime() < today.getTime()) {
-          overdue = debt > 0;
+          overdue = stillOwes;
           if (!overdue) {
-            // Sin deuda: rollover al próximo mes con ese día (máx 28)
             const d = Math.min(28, dueDate.getDate());
             const rolled = new Date(today.getFullYear(), today.getMonth(), d);
             dueDate = rolled.getTime() >= today.getTime()
@@ -1650,7 +1686,7 @@
             <input id="f-acc-amountdue" name="amountDue" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(amountDue === "" || amountDue == null ? "" : String(amountDue))}" placeholder="Ej. 2500.50" />
             <p class="field-hint">Pago de este corte / vencido. La deuda total va arriba. Al tocar Pagar se usa este monto.</p>
           </div>
-          <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
+          <p class="field-hint">Si el día de pago es anterior al de corte (ej. corte 11, pago 2), el vencimiento es el 2 del mes siguiente al corte.</p>
         </div>
         <div class="form-row">
           <label>Color</label>

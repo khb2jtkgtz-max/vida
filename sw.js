@@ -1,5 +1,5 @@
 /* Vida service worker — network-first shell; offline fallback */
-const CACHE = "vida-static-v43";
+const CACHE = "vida-static-v44";
 const ASSETS = [
   "./",
   "./index.html",
