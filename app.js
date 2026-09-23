@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.20";
+  const APP_VERSION = "1.12.21";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -32,6 +32,7 @@
     { id: "efectivo", label: "Efectivo", icon: "💵" },
     { id: "debito", label: "Débito/Banco", icon: "🏦" },
     { id: "credito", label: "Crédito", icon: "💳" },
+    { id: "deuda", label: "Préstamo / debo", icon: "🤝" },
     { id: "ahorros", label: "Ahorros", icon: "🐷" },
     { id: "inversion", label: "Inversión", icon: "📈" },
     { id: "otro", label: "Otro", icon: "📁" }
@@ -57,7 +58,13 @@
     { group: "Tarjetas", name: "Santander Free", type: "credito", color: "#ec0000", icon: "💳" },
     { group: "Tarjetas", name: "BBVA Aqua", type: "credito", color: "#00a3e0", icon: "💳" },
     { group: "Tarjetas", name: "Nu tarjeta", type: "credito", color: "#820ad1", icon: "💳" },
-    { group: "Tarjetas", name: "Banorte Clásica", type: "credito", color: "#eb0029", icon: "💳" }
+    { group: "Tarjetas", name: "Banorte Clásica", type: "credito", color: "#eb0029", icon: "💳" },
+    { group: "Préstamos que debo", name: "Préstamo en efectivo", type: "deuda", color: "#f59e0b", icon: "🤝" },
+    { group: "Préstamos que debo", name: "Préstamo bancario", type: "deuda", color: "#ea580c", icon: "🏦" },
+    { group: "Préstamos que debo", name: "Santander préstamo", type: "deuda", color: "#ec0000", icon: "🏦" },
+    { group: "Préstamos que debo", name: "BBVA préstamo", type: "deuda", color: "#004481", icon: "🏦" },
+    { group: "Préstamos que debo", name: "Hey préstamo", type: "deuda", color: "#00c2a8", icon: "🏦" },
+    { group: "Préstamos que debo", name: "Nu préstamo", type: "deuda", color: "#820ad1", icon: "💜" }
   ];
 
   const MONTHS_ES = [
@@ -547,7 +554,13 @@
     return `${weekday} ${day} ${MONTHS_SHORT_ES[month - 1]} ${year}`;
   }
 
-  /** Deuda de tarjeta: gastos bajan el saldo; saldo negativo = debe. */
+  /** Tarjeta de crédito o préstamo/deuda que tú debes. */
+  function isOwedAccountType(typeOrAcc) {
+    const t = typeof typeOrAcc === "string" ? typeOrAcc : (typeOrAcc && typeOrAcc.type);
+    return t === "credito" || t === "deuda";
+  }
+
+  /** Deuda de tarjeta o préstamo: gastos bajan el saldo; saldo negativo = debe. */
 
   /** Monto a pagar indicado en la tarjeta (corte/vencido); si no hay, null. */
   function creditAmountDue(accOrId) {
@@ -560,16 +573,15 @@
 
   function creditDebtAmount(accOrId) {
     const acc = typeof accOrId === "string" ? accountById(accOrId) : accOrId;
-    if (!acc) return 0;
+    if (!acc || !isOwedAccountType(acc)) return 0;
     const bal = accountBalance(acc.id);
-    if (acc.type === "credito") return bal < 0 ? Math.abs(bal) : 0;
     return bal < 0 ? Math.abs(bal) : 0;
   }
 
-  /** Suma de deuda de todas las tarjetas de crédito. */
+  /** Suma de lo que debes: tarjetas + préstamos/préstamos. */
   function totalCreditDebt() {
     return state.accounts.reduce((sum, a) => {
-      if (a.type !== "credito") return sum;
+      if (!isOwedAccountType(a)) return sum;
       return sum + creditDebtAmount(a);
     }, 0);
   }
@@ -1425,12 +1437,13 @@
     state.accounts.forEach((a) => {
       const bal = accountBalance(a.id);
       const meta = accountTypeMeta(a.type);
+      const isOwed = isOwedAccountType(a);
       const isCredit = a.type === "credito";
-      const debt = isCredit ? creditDebtAmount(a) : 0;
+      const debt = isOwed ? creditDebtAmount(a) : 0;
       const payInfo = isCredit ? creditPaymentInfo(a) : null;
-      const balClass = isCredit ? "debt" : (bal < 0 ? "neg" : "");
+      const balClass = isOwed ? "debt" : (bal < 0 ? "neg" : "");
       const duePayChip = isCredit ? creditAmountDue(a) : null;
-      const balText = isCredit
+      const balText = isOwed
         ? (duePayChip != null
           ? `Pagar: ${formatMXN(duePayChip)} · Deuda: ${formatMXN(debt)}`
           : `Deuda: ${formatMXN(debt)}`)
@@ -1440,12 +1453,14 @@
         const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
         const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
         payHtml = `<span class="account-chip-pay ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
+      } else if (a.type === "deuda") {
+        payHtml = `<span class="account-chip-pay muted">Préstamo que debes</span>`;
       } else if (isCredit) {
         payHtml = `<span class="account-chip-pay muted">Sin fecha de pago</span>`;
       }
-      const canPay = isCredit && (debt > 0 || duePayChip != null);
+      const canPay = isOwed && (debt > 0 || duePayChip != null);
       const card = document.createElement("div");
-      card.className = "account-chip" + (isCredit ? " credit" : "");
+      card.className = "account-chip" + (isOwed ? " credit" : "");
       card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
       card.innerHTML = `
         <button type="button" class="account-chip-main" title="Editar cuenta">
@@ -1528,7 +1543,7 @@
   }
 
   function fundingAccountsForPay(excludeId) {
-    return state.accounts.filter((a) => a.id !== excludeId && a.type !== "credito");
+    return state.accounts.filter((a) => a.id !== excludeId && !isOwedAccountType(a));
   }
 
   function ensurePayCategories() {
@@ -1541,11 +1556,11 @@
   }
 
   function openCreditPayModal(acc) {
-    if (!acc || acc.type !== "credito") return;
+    if (!acc || !isOwedAccountType(acc)) return;
     const debt = creditDebtAmount(acc);
-    const indicated = creditAmountDue(acc);
+    const indicated = acc.type === "credito" ? creditAmountDue(acc) : null;
     if (!(debt > 0) && !(indicated > 0)) {
-      toast("Esta tarjeta no tiene deuda ni cantidad a pagar");
+      toast(acc.type === "deuda" ? "Este préstamo no tiene saldo pendiente" : "Esta tarjeta no tiene deuda ni cantidad a pagar");
       return;
     }
     const funders = fundingAccountsForPay(acc.id);
@@ -1563,7 +1578,7 @@
     }).join("");
     const html = `
       <div class="form-grid">
-        <p class="field-hint">Pagar tarjeta <strong>${escapeHtml(acc.name)}</strong>: eliges de qué cuenta sale el dinero; baja la deuda y queda registrado el movimiento.</p>
+        <p class="field-hint">${acc.type === "deuda" ? "Abonar préstamo" : "Pagar tarjeta"} <strong>${escapeHtml(acc.name)}</strong>: eliges de qué cuenta sale el dinero; baja lo que debes y queda registrado.</p>
         <div class="form-row">
           <label>Deuda total</label>
           <strong class="stat-value" style="font-size:1.25rem;color:var(--gasto)">${formatMXN(fullDebt)}</strong>
@@ -1591,7 +1606,7 @@
           <input id="f-pay-note" name="note" maxlength="120" placeholder="Ej. pago quincena" />
         </div>
       </div>`;
-    openModal("Pagar tarjeta · " + acc.name, html, (fd) => {
+    openModal((acc.type === "deuda" ? "Abonar préstamo · " : "Pagar tarjeta · ") + acc.name, html, (fd) => {
       const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-pay-amount")?.value);
       if (!(amount > 0)) {
         toast("Monto inválido");
@@ -1658,6 +1673,7 @@
   function institutionPresetsHtml() {
     const banks = INSTITUTION_PRESETS.filter((p) => p.group === "Bancos");
     const cards = INSTITUTION_PRESETS.filter((p) => p.group === "Tarjetas");
+    const debts = INSTITUTION_PRESETS.filter((p) => p.group === "Préstamos que debo");
     const chip = (p) =>
       `<button type="button" class="preset-chip" data-name="${escapeAttr(p.name)}" data-type="${escapeAttr(p.type)}" data-color="${escapeAttr(p.color)}" data-icon="${escapeAttr(p.icon || "")}">${escapeHtml(p.name)}</button>`;
     return `
@@ -1668,8 +1684,10 @@
           ${banks.map(chip).join("")}
           <span class="preset-group-label">Tarjetas</span>
           ${cards.map(chip).join("")}
+          <span class="preset-group-label">Préstamos que debo</span>
+          ${debts.map(chip).join("")}
         </div>
-        <p class="field-hint">Elige un atajo o escribe un nombre personalizado abajo.</p>
+        <p class="field-hint">Bancos y tarjetas, o un préstamo (banco o persona en efectivo). También puedes escribir el nombre abajo.</p>
       </div>`;
   }
 
@@ -1685,8 +1703,10 @@
     const amountDue = acc && acc.amountDue != null ? acc.amountDue : "";
     const institution = acc && acc.institution ? acc.institution : "";
     const isCreditForm = type === "credito";
-    const debtShown = isCreditForm && acc ? creditDebtAmount(acc) : null;
-    const openingShown = isCreditForm
+    const isDebtForm = type === "deuda";
+    const isOwedForm = isCreditForm || isDebtForm;
+    const debtShown = isOwedForm && acc ? creditDebtAmount(acc) : null;
+    const openingShown = isOwedForm
       ? (debtShown != null && debtShown > 0 ? debtShown : "")
       : (acc ? acc.openingBalance : 0);
     return `
@@ -1694,7 +1714,7 @@
         ${institutionPresetsHtml()}
         <div class="form-row">
           <label for="f-acc-name">Nombre</label>
-          <input id="f-acc-name" name="name" required maxlength="60" value="${acc ? escapeAttr(acc.name) : ""}" placeholder="Ej. Santander, Amex, Like U, Hey Banco" />
+          <input id="f-acc-name" name="name" required maxlength="60" value="${acc ? escapeAttr(acc.name) : ""}" placeholder="Ej. Like U, préstamo Andy, Santander préstamo" />
           <input type="hidden" name="institution" id="f-acc-institution" value="${escapeAttr(institution)}" />
         </div>
         <div class="form-row">
@@ -1702,9 +1722,9 @@
           <select id="f-acc-type" name="type">${accountTypeOptionsHtml(type)}</select>
         </div>
         <div class="form-row">
-          <label for="f-acc-opening" id="f-acc-opening-label">${isCreditForm ? "Deuda total (MXN)" : "Saldo inicial (MXN)"}</label>
-          <input id="f-acc-opening" name="openingBalance" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(String(openingShown))}" placeholder="${isCreditForm ? "Ej. 7196.19" : "0"}" />
-          <p class="field-hint" id="f-acc-opening-hint">${isCreditForm ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda." : "Saldo con el que empieza la cuenta."}</p>
+          <label for="f-acc-opening" id="f-acc-opening-label">${isOwedForm ? "Deuda total (MXN)" : "Saldo inicial (MXN)"}</label>
+          <input id="f-acc-opening" name="openingBalance" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(String(openingShown))}" placeholder="${isOwedForm ? "Ej. 5000" : "0"}" />
+          <p class="field-hint" id="f-acc-opening-hint">${isDebtForm ? "Lo que debes (banco o persona). Ponlo en positivo. Nombre: quién te prestó (ej. Andy, Santander préstamo)." : (isCreditForm ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda." : "Saldo con el que empieza la cuenta.")}</p>
         </div>
         <div id="f-acc-credit-fields" class="credit-fields${type === "credito" ? "" : " hidden"}">
           <div class="form-row">
@@ -1745,18 +1765,22 @@
     const box = form.querySelector("#f-acc-credit-fields");
     if (box) box.classList.toggle("hidden", type !== "credito");
     const isCredit = type === "credito";
+    const isDebt = type === "deuda";
+    const isOwed = isCredit || isDebt;
     const lab = form.querySelector("#f-acc-opening-label");
     const hint = form.querySelector("#f-acc-opening-hint");
     const opening = form.querySelector("#f-acc-opening");
-    if (lab) lab.textContent = isCredit ? "Deuda total (MXN)" : "Saldo inicial (MXN)";
+    if (lab) lab.textContent = isOwed ? "Deuda total (MXN)" : "Saldo inicial (MXN)";
     if (hint) {
-      hint.textContent = isCredit
-        ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda."
-        : "Saldo con el que empieza la cuenta.";
+      hint.textContent = isDebt
+        ? "Lo que debes (banco o persona). Ponlo en positivo. Nombre: quién te prestó."
+        : (isCredit
+          ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda."
+          : "Saldo con el que empieza la cuenta.");
     }
     if (opening) {
-      opening.placeholder = isCredit ? "Ej. 7196.19" : "0";
-      if (isCredit) {
+      opening.placeholder = isOwed ? "Ej. 5000" : "0";
+      if (isOwed) {
         const n = parseMoneyInput(opening.value);
         if (n != null && n < 0) opening.value = String(Math.abs(n));
       }
@@ -1831,25 +1855,33 @@
         data.amountDue = dueAmt != null && dueAmt > 0 ? dueAmt : null;
         data.payUrl = normalizePayUrl(fd.get("payUrl"));
         data.nextPaymentDate = null; // el ciclo corte+pago manda
-        // El usuario escribe la deuda en positivo; la convertimos a saldo negativo real
+        let debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
+        data.openingBalance = openingBalanceForCreditDebt(acc && acc.id, debtPos);
+      } else if (type === "deuda") {
+        data.creditLimit = null;
+        data.cutoffDay = null;
+        data.paymentDueDay = null;
+        data.amountDue = null;
+        data.payUrl = null;
+        data.nextPaymentDate = null;
         let debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
         data.openingBalance = openingBalanceForCreditDebt(acc && acc.id, debtPos);
       }
       data.updatedAt = Date.now();
       if (acc) {
         Object.assign(acc, data);
-        const debtNow = creditDebtAmount(acc);
+        const debtNow = isOwedAccountType(acc) ? creditDebtAmount(acc) : 0;
         toast(debtNow > 0
           ? `Cuenta actualizada · deuda ${formatMXN(debtNow)}` + (data.amountDue != null ? ` · pagar ${formatMXN(data.amountDue)}` : "")
           : (data.amountDue != null ? `Cuenta actualizada · pagar ${formatMXN(data.amountDue)}` : "Cuenta actualizada"));
       } else {
         const created = { id: uid(), ...data };
-        if (type === "credito") {
+        if (type === "credito" || type === "deuda") {
           const debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
           created.openingBalance = openingBalanceForCreditDebt(created.id, debtPos);
         }
         state.accounts.push(created);
-        toast("Cuenta creada");
+        toast(type === "deuda" ? "Préstamo / deuda creada" : "Cuenta creada");
       }
       saveState();
       renderFinanzas();
