@@ -114,7 +114,7 @@
           <div class="stat-card card assets">
             <span class="stat-label">Lo que tienes</span>
             <strong id="fin-assets" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-assets-hint">Efectivo + bancos + ahorros</span>
+            <span class="stat-hint" id="fin-assets-hint">Cuentas + te deben</span>
           </div>
           <div class="stat-card card debt-owe">
             <span class="stat-label">Lo que debes</span>
@@ -128,12 +128,11 @@
           </div>
         </div>
         <p class="fin-month-flow muted" id="fin-month-flow">
-          <span>Te deben <strong id="fin-loans-total">$0.00</strong></span>
-          <span>·</span>
           <span>Mes: ingresos <strong id="fin-ingresos">$0.00</strong></span>
           <span>·</span>
           <span>gastos <strong id="fin-gastos">$0.00</strong></span>
         </p>
+        <span id="fin-loans-total" class="hidden" aria-hidden="true">$0.00</span>
         <span id="fin-ingresos-label" class="hidden" aria-hidden="true"></span>
         <div class="card cuentas-section">
           <div class="card-head">
@@ -146,8 +145,8 @@
           <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
           <p id="accounts-total" class="hidden" aria-hidden="true"></p>
         </div>
-        <div id="fin-debt-breakdown" class="hidden" aria-hidden="true"></div>
-        <p id="fin-debt-empty" class="hidden" aria-hidden="true"></p>
+        <div id="fin-debt-breakdown" class="hidden" hidden aria-hidden="true"></div>
+        <p id="fin-debt-empty" class="hidden" hidden aria-hidden="true"></p>
         <div class="finanzas-layout">
           <div class="card">
             <div class="card-head">

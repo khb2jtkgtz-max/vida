@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.27";
+  const APP_VERSION = "1.12.28";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -528,9 +528,9 @@
    * (tarjetas y préstamos). Los abonos bajan deuda; los cobros bajan
    * "te deben" y suben la cuenta destino.
    */
-  /** Me queda = dinero en cuentas − tarjetas − préstamos que debo (sin sumar “te deben”). */
+  /** Me queda = (cuentas + te deben) − tarjetas − préstamos que debo. */
   function netWorth() {
-    return totalAvailableMoney() - totalCreditDebt();
+    return totalAvailableMoney() + totalLoanOutstanding() - totalCreditDebt();
   }
 
   function accountById(id) {
@@ -1490,10 +1490,12 @@
     const totalEl = document.getElementById("accounts-total");
     if (!chips) return;
     const assetsOnly = totalAvailableMoney();
+    const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    const meQueda = assetsOnly - debt;
+    const tienes = assetsOnly + owedToMe;
+    const meQueda = tienes - debt;
     if (totalEl) {
-      totalEl.textContent = `Tienes ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
+      totalEl.textContent = `Tienes ${formatMXN(tienes)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
     }
     chips.innerHTML = "";
     if (!state.accounts.length) {
@@ -1567,9 +1569,9 @@
               <span class="dual-rest"><small>Restante</small><b>${formatMXN(split.restante)}</b></span>
             </span>`;
         } else if (a.type === "deuda") {
-          amountsHtml = `<span class="account-chip-bal debt">${formatMXN(debtAmt)}</span>`;
+          amountsHtml = `<span class="account-chip-amt debt">${formatMXN(debtAmt)}</span>`;
         } else {
-          amountsHtml = `<span class="account-chip-bal ${bal < 0 ? "neg" : ""}">${formatMXN(bal)}</span>`;
+          amountsHtml = `<span class="account-chip-amt ${bal < 0 ? "neg" : ""}">${formatMXN(bal)}</span>`;
         }
 
         const payInfo = isCredit ? creditPaymentInfo(a) : null;
@@ -1577,21 +1579,25 @@
         if (payInfo) {
           const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
           const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
-          payHtml = `<span class="account-chip-pay ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
+          payHtml = `<span class="account-chip-payline ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
         }
 
         card.innerHTML = `
           <button type="button" class="account-chip-main" title="Editar cuenta">
             <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
-            <span class="account-chip-body account-chip-body-mm">
-              <strong>${escapeHtml(a.name)}</strong>
-              <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
-              ${amountsHtml}
+            <span class="account-chip-stack">
+              <span class="account-chip-top">
+                <span class="account-chip-left">
+                  <strong>${escapeHtml(a.name)}</strong>
+                  <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
+                </span>
+                ${amountsHtml}
+              </span>
               ${payHtml}
             </span>
           </button>
           <div class="account-chip-actions">
-            <button type="button" class="account-chip-edit-btn" title="Editar">Editar</button>
+            <button type="button" class="account-chip-edit-btn" title="Editar">✎</button>
             ${canPay ? `<button type="button" class="account-chip-pay-btn" title="Pagar">Pagar</button>` : ""}
           </div>`;
         const openEdit = (e) => {
@@ -2100,12 +2106,17 @@
     const assets = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    // Me queda = lo que tienes − deudas − préstamos que debes
-    const meQueda = assets - debtTotal;
+    // Lo que tienes = cuentas + te deben; Me queda = tienes − debes
+    const tienes = assets + owedToMe;
+    const meQueda = tienes - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
-    if (assetsEl) assetsEl.textContent = formatMXN(assets);
+    if (assetsEl) assetsEl.textContent = formatMXN(tienes);
     const assetsHint = document.getElementById("fin-assets-hint");
-    if (assetsHint) assetsHint.textContent = "Efectivo + bancos + ahorros";
+    if (assetsHint) {
+      assetsHint.textContent = owedToMe > 0
+        ? `Cuentas ${formatMXN(assets)} + te deben ${formatMXN(owedToMe)}`
+        : `Cuentas ${formatMXN(assets)}`;
+    }
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
     const balEl = document.getElementById("fin-balance");

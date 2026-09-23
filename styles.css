@@ -1767,21 +1767,33 @@ a { color: var(--primary); }
 }
 
 
-/* Cuentas estilo Money Manager */
+/* Cuentas agrupadas — layout sin solapes */
 .fin-dashboard-mm {
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
 }
-.account-group {
-  margin-bottom: 0.75rem;
+.fin-dashboard-mm .stat-card {
+  min-width: 0;
+  overflow: hidden;
 }
+.fin-dashboard-mm .stat-value {
+  font-size: clamp(0.95rem, 3.5vw, 1.25rem);
+  word-break: break-word;
+}
+.fin-dashboard-mm .stat-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-group { margin-bottom: 0.85rem; }
 .account-group-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.35rem 0.75rem;
-  padding: 0.35rem 16px 0.25rem;
-  margin: 0 -16px;
+  padding: 0.4rem 0 0.3rem;
 }
 .account-group-head h4 {
   margin: 0;
@@ -1795,46 +1807,101 @@ a { color: var(--primary); }
   font-family: var(--mono);
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text);
 }
 .account-group-sum.debt { color: var(--gasto); }
 .account-group-credit-heads {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.65rem;
   font-size: 0.72rem;
   color: var(--muted);
 }
 .account-group-credit-heads strong {
   font-family: var(--mono);
   color: var(--gasto);
+}
+.account-chip-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+.account-chip-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.account-chip-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+.account-chip-left strong {
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-chip-amt {
+  font-family: var(--mono);
+  font-size: 0.95rem;
   font-weight: 600;
+  flex-shrink: 0;
+  text-align: right;
 }
-.account-chip-body-mm {
-  grid-template-columns: 1fr auto;
-}
+.account-chip-amt.debt,
+.account-chip-amt.neg { color: var(--gasto); }
 .account-chip-dual {
   display: flex;
-  gap: 0.75rem;
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
   text-align: right;
 }
 .account-chip-dual small {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: var(--muted);
   font-weight: 500;
 }
 .account-chip-dual b {
   font-family: var(--mono);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--gasto);
 }
 .dual-pagar b { color: var(--warn); }
+.account-chip-payline {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.25;
+}
+.account-chip-payline.soon { color: var(--warn); font-weight: 600; }
+.account-chip-payline.overdue { color: var(--gasto); font-weight: 600; }
+.account-chip-actions {
+  flex-direction: row;
+  align-items: center;
+}
+.account-chip-edit-btn {
+  padding: 0.4rem 0.55rem;
+  min-width: 2.2rem;
+}
 @media (max-width: 640px) {
   .fin-dashboard-mm { grid-template-columns: 1fr; }
-  .fin-dashboard-mm .fin-total-general { order: 3; }
+  .fin-dashboard-mm .fin-total-general { order: -1; }
+  .account-chip {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .account-chip-main { width: 100%; }
+  .account-chip-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 0.35rem;
+  }
 }
