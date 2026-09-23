@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.21";
+  const APP_VERSION = "1.12.22";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -498,6 +498,21 @@
 
   function totalAccountsBalance() {
     return state.accounts.reduce((sum, a) => sum + accountBalance(a.id), 0);
+  }
+
+  /** Efectivo, bancos, ahorros, etc. (sin tarjetas ni préstamos que debes). */
+  function totalAvailableMoney() {
+    return state.accounts.reduce((sum, a) => {
+      if (isOwedAccountType(a)) return sum;
+      return sum + accountBalance(a.id);
+    }, 0);
+  }
+
+  function owedAccountsSorted() {
+    return state.accounts
+      .filter((a) => isOwedAccountType(a) && creditDebtAmount(a) > 0)
+      .map((a) => ({ acc: a, debt: creditDebtAmount(a), due: a.type === "credito" ? creditAmountDue(a) : null }))
+      .sort((x, y) => y.debt - x.debt);
   }
 
   function accountById(id) {
@@ -1426,8 +1441,9 @@
     const chips = document.getElementById("accounts-chips");
     const totalEl = document.getElementById("accounts-total");
     if (!chips || !totalEl) return;
-    const total = totalAccountsBalance();
-    totalEl.innerHTML = `Total en cuentas: <strong>${formatMXN(total)}</strong>`;
+    const assets = totalAvailableMoney();
+    const debt = totalCreditDebt();
+    totalEl.innerHTML = `Disponible: <strong>${formatMXN(assets)}</strong> · Debes: <strong class="debt-total">${formatMXN(debt)}</strong> · Neto: <strong>${formatMXN(assets - debt)}</strong>`;
     chips.innerHTML = "";
     if (!state.accounts.length) {
       chips.innerHTML = `<p class="empty-hint">Agrega tu primera cuenta.</p>`;
@@ -1918,6 +1934,36 @@
     }
   }
 
+  function renderDebtBreakdown() {
+    const list = document.getElementById("fin-debt-breakdown");
+    const empty = document.getElementById("fin-debt-empty");
+    if (!list || !empty) return;
+    const rows = owedAccountsSorted();
+    list.innerHTML = "";
+    empty.classList.toggle("hidden", rows.length > 0);
+    rows.forEach(({ acc, debt, due }) => {
+      const meta = accountTypeMeta(acc.type);
+      const li = document.createElement("li");
+      li.className = "fin-debt-row";
+      const dueBit = due != null ? `<span class="fin-debt-due">A pagar: ${formatMXN(due)}</span>` : "";
+      li.innerHTML = `
+        <button type="button" class="fin-debt-main" data-edit>
+          <span class="fin-debt-icon" aria-hidden="true">${escapeHtml(acc.icon || meta.icon)}</span>
+          <span class="fin-debt-info">
+            <strong>${escapeHtml(acc.name)}</strong>
+            <span class="muted">${escapeHtml(meta.label)}</span>
+            ${dueBit}
+          </span>
+          <strong class="fin-debt-amt">${formatMXN(debt)}</strong>
+        </button>
+        <button type="button" class="account-chip-pay-btn" data-pay>Pagar</button>
+      `;
+      li.querySelector("[data-edit]").addEventListener("click", () => openAccountModal(acc));
+      li.querySelector("[data-pay]").addEventListener("click", () => openCreditPayModal(acc));
+      list.appendChild(li);
+    });
+  }
+
   function renderFinanzas() {
     renderAccounts();
     renderLoans();
@@ -1933,16 +1979,32 @@
       if (t.type === "ingreso") ingresos += Number(t.amount);
       else gastos += Number(t.amount);
     });
-    // Month balance for filtered set; also show global accounts total in dashboard balance if no account filter
-    document.getElementById("fin-balance").textContent = formatMXN(ingresos - gastos);
+    const assets = totalAvailableMoney();
+    const debtTotal = totalCreditDebt();
+    const net = assets - debtTotal;
+    const assetsEl = document.getElementById("fin-assets");
+    if (assetsEl) assetsEl.textContent = formatMXN(assets);
+    const creditDebtEl = document.getElementById("fin-credit-debt");
+    if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
+    const balEl = document.getElementById("fin-balance");
+    if (balEl) {
+      balEl.textContent = formatMXN(net);
+      balEl.classList.toggle("neg-net", net < 0);
+    }
     document.getElementById("fin-ingresos").textContent = formatMXN(ingresos);
     document.getElementById("fin-gastos").textContent = formatMXN(gastos);
-    const creditDebtEl = document.getElementById("fin-credit-debt");
-    if (creditDebtEl) creditDebtEl.textContent = formatMXN(totalCreditDebt());
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(totalLoanOutstanding());
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = accountFilter === "all" ? "Balance del mes" : "Balance (cuenta)";
+    if (balLabel) balLabel.textContent = "Neto (tienes − debes)";
+    const ingLabel = document.getElementById("fin-ingresos-label");
+    if (ingLabel) {
+      const ym = finMonthValue();
+      const [y, m] = ym.split("-");
+      const mes = MONTHS_SHORT_ES[Math.max(0, (parseInt(m, 10) || 1) - 1)] || "";
+      ingLabel.textContent = accountFilter === "all" ? `Ingresos (${mes} ${y})` : "Ingresos (filtro)";
+    }
+    renderDebtBreakdown();
 
     let listTxs = txs;
     if (typeFilter !== "all") listTxs = listTxs.filter((t) => t.type === typeFilter);

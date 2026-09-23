@@ -110,6 +110,39 @@
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
+        <div class="fin-dashboard">
+          <div class="stat-card card assets">
+            <span class="stat-label">Dinero que tienes</span>
+            <strong id="fin-assets" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card debt-owe">
+            <span class="stat-label">Total que debes</span>
+            <strong id="fin-credit-debt" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card balance">
+            <span class="stat-label" id="fin-balance-label">Neto (tienes − debes)</span>
+            <strong id="fin-balance" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card ingreso">
+            <span class="stat-label" id="fin-ingresos-label">Ingresos del mes</span>
+            <strong id="fin-ingresos" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card gasto">
+            <span class="stat-label">Gastos del mes</span>
+            <strong id="fin-gastos" class="stat-value">$0.00</strong>
+          </div>
+          <div class="stat-card card loan">
+            <span class="stat-label">Total que te deben</span>
+            <strong id="fin-loans-total" class="stat-value">$0.00</strong>
+          </div>
+        </div>
+        <div class="card fin-debt-breakdown-card">
+          <div class="card-head">
+            <h3>Deuda por tarjeta / préstamo</h3>
+          </div>
+          <ul id="fin-debt-breakdown" class="fin-debt-breakdown"></ul>
+          <p id="fin-debt-empty" class="empty-hint hidden">No hay tarjetas ni préstamos por pagar.</p>
+        </div>
         <div class="finanzas-layout">
           <div class="card">
             <div class="card-head">
@@ -132,28 +165,6 @@
             <h3>Por categoría</h3>
             <div id="fin-chart" class="chart-bars"></div>
             <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
-          </div>
-        </div>
-        <div class="fin-dashboard">
-          <div class="stat-card card balance">
-            <span class="stat-label" id="fin-balance-label">Balance del mes</span>
-            <strong id="fin-balance" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card ingreso">
-            <span class="stat-label">Ingresos</span>
-            <strong id="fin-ingresos" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card gasto">
-            <span class="stat-label">Gastos</span>
-            <strong id="fin-gastos" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card debt-owe">
-            <span class="stat-label">Total que debes</span>
-            <strong id="fin-credit-debt" class="stat-value">$0.00</strong>
-          </div>
-          <div class="stat-card card loan">
-            <span class="stat-label">Total que te deben</span>
-            <strong id="fin-loans-total" class="stat-value">$0.00</strong>
           </div>
         </div>
         <div class="card cuentas-section">

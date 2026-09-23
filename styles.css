@@ -593,7 +593,7 @@ a { color: var(--primary); }
 /* Finanzas */
 .fin-dashboard {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
   gap: 0.55rem;
   margin-bottom: 1rem;
   overflow-x: auto;
@@ -619,6 +619,61 @@ a { color: var(--primary); }
 .stat-card.gasto .stat-value { color: var(--gasto); }
 .stat-card.loan .stat-value { color: var(--warn); }
 .stat-card.debt-owe .stat-value { color: var(--gasto); }
+.stat-card.assets .stat-value { color: var(--ingreso); }
+#fin-balance.neg-net { color: var(--gasto); }
+.fin-debt-breakdown-card { margin-bottom: 1rem; }
+.fin-debt-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.fin-debt-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--separator);
+}
+.fin-debt-row:last-child { border-bottom: none; }
+.fin-debt-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.fin-debt-icon { font-size: 1.15rem; width: 1.5rem; text-align: center; flex-shrink: 0; }
+.fin-debt-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.fin-debt-info strong {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fin-debt-due { font-size: 0.72rem; color: var(--warn); }
+.fin-debt-amt {
+  font-family: var(--mono);
+  color: var(--gasto);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.accounts-total .debt-total { color: var(--gasto); }
 
 .finanzas-layout {
   margin-top: 0.25rem;
