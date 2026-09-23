@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.22";
+  const APP_VERSION = "1.12.23";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -513,6 +513,15 @@
       .filter((a) => isOwedAccountType(a) && creditDebtAmount(a) > 0)
       .map((a) => ({ acc: a, debt: creditDebtAmount(a), due: a.type === "credito" ? creditAmountDue(a) : null }))
       .sort((x, y) => y.debt - x.debt);
+  }
+
+  /**
+   * Neto real: dinero en cuentas + lo que te deben − lo que debes
+   * (tarjetas y préstamos). Los abonos bajan deuda; los cobros bajan
+   * "te deben" y suben la cuenta destino.
+   */
+  function netWorth() {
+    return totalAvailableMoney() + totalLoanOutstanding() - totalCreditDebt();
   }
 
   function accountById(id) {
@@ -1442,8 +1451,10 @@
     const totalEl = document.getElementById("accounts-total");
     if (!chips || !totalEl) return;
     const assets = totalAvailableMoney();
+    const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    totalEl.innerHTML = `Disponible: <strong>${formatMXN(assets)}</strong> · Debes: <strong class="debt-total">${formatMXN(debt)}</strong> · Neto: <strong>${formatMXN(assets - debt)}</strong>`;
+    const net = assets + owedToMe - debt;
+    totalEl.innerHTML = `Cuentas: <strong>${formatMXN(assets)}</strong> · Te deben: <strong>${formatMXN(owedToMe)}</strong> · Debes: <strong class="debt-total">${formatMXN(debt)}</strong> · Neto: <strong>${formatMXN(net)}</strong>`;
     chips.innerHTML = "";
     if (!state.accounts.length) {
       chips.innerHTML = `<p class="empty-hint">Agrega tu primera cuenta.</p>`;
@@ -1980,8 +1991,9 @@
       else gastos += Number(t.amount);
     });
     const assets = totalAvailableMoney();
+    const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    const net = assets - debtTotal;
+    const net = assets + owedToMe - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
     if (assetsEl) assetsEl.textContent = formatMXN(assets);
     const creditDebtEl = document.getElementById("fin-credit-debt");
@@ -1994,9 +2006,9 @@
     document.getElementById("fin-ingresos").textContent = formatMXN(ingresos);
     document.getElementById("fin-gastos").textContent = formatMXN(gastos);
     const loansTotal = document.getElementById("fin-loans-total");
-    if (loansTotal) loansTotal.textContent = formatMXN(totalLoanOutstanding());
+    if (loansTotal) loansTotal.textContent = formatMXN(owedToMe);
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = "Neto (tienes − debes)";
+    if (balLabel) balLabel.textContent = "Neto (cuentas + te deben − debes)";
     const ingLabel = document.getElementById("fin-ingresos-label");
     if (ingLabel) {
       const ym = finMonthValue();
