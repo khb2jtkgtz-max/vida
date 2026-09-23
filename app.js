@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.14";
+  const APP_VERSION = "1.12.15";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -454,6 +454,24 @@
 
   function totalLoanOutstanding() {
     return (state.loans || []).reduce((sum, loan) => sum + loanOutstanding(loan), 0);
+  }
+
+  function accountTxNet(accountId) {
+    let net = 0;
+    state.transactions.forEach((tx) => {
+      if (tx.accountId !== accountId) return;
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === "ingreso") net += amt;
+      else net -= amt;
+    });
+    return net;
+  }
+
+  /** Para crédito: openingBalance tal que la deuda (abs bal si neg) = desiredDebt. */
+  function openingBalanceForCreditDebt(accountId, desiredDebt) {
+    const want = Math.max(0, Number(desiredDebt) || 0);
+    const txNet = accountId ? accountTxNet(accountId) : 0;
+    return Math.round((-want - txNet) * 100) / 100;
   }
 
   function accountBalance(accountId) {
@@ -1590,6 +1608,11 @@
     const paymentDueDay = acc && acc.paymentDueDay != null ? acc.paymentDueDay : "";
     const amountDue = acc && acc.amountDue != null ? acc.amountDue : "";
     const institution = acc && acc.institution ? acc.institution : "";
+    const isCreditForm = type === "credito";
+    const debtShown = isCreditForm && acc ? creditDebtAmount(acc) : null;
+    const openingShown = isCreditForm
+      ? (debtShown != null && debtShown > 0 ? debtShown : "")
+      : (acc ? acc.openingBalance : 0);
     return `
       <div class="form-grid">
         ${institutionPresetsHtml()}
@@ -1603,9 +1626,9 @@
           <select id="f-acc-type" name="type">${accountTypeOptionsHtml(type)}</select>
         </div>
         <div class="form-row">
-          <label for="f-acc-opening" id="f-acc-opening-label">Saldo inicial (MXN)</label>
-          <input id="f-acc-opening" name="openingBalance" type="number" step="0.01" value="${acc ? acc.openingBalance : 0}" />
-          <p class="field-hint" id="f-acc-opening-hint">Para tarjetas de crédito, 0 = sin deuda; usa negativo si ya debes (ej. -3500). Los gastos aumentan la deuda.</p>
+          <label for="f-acc-opening" id="f-acc-opening-label">${isCreditForm ? "Deuda total (MXN)" : "Saldo inicial (MXN)"}</label>
+          <input id="f-acc-opening" name="openingBalance" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(String(openingShown))}" placeholder="${isCreditForm ? "Ej. 7196.19" : "0"}" />
+          <p class="field-hint" id="f-acc-opening-hint">${isCreditForm ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda." : "Saldo con el que empieza la cuenta."}</p>
         </div>
         <div id="f-acc-credit-fields" class="credit-fields${type === "credito" ? "" : " hidden"}">
           <div class="form-row">
@@ -1625,7 +1648,7 @@
           <div class="form-row">
             <label for="f-acc-amountdue">Cantidad a pagar (vencida / del corte)</label>
             <input id="f-acc-amountdue" name="amountDue" type="text" inputmode="decimal" autocomplete="off" value="${escapeAttr(amountDue === "" || amountDue == null ? "" : String(amountDue))}" placeholder="Ej. 2500.50" />
-            <p class="field-hint">Es el pago que te pide el banco este periodo, no toda la deuda de la tarjeta. Al tocar Pagar se usa este monto.</p>
+            <p class="field-hint">Pago de este corte / vencido. La deuda total va arriba. Al tocar Pagar se usa este monto.</p>
           </div>
           <p class="field-hint">Con el día de pago calculamos el próximo vencimiento a partir de hoy.</p>
         </div>
@@ -1645,6 +1668,23 @@
     const type = form.querySelector("#f-acc-type")?.value;
     const box = form.querySelector("#f-acc-credit-fields");
     if (box) box.classList.toggle("hidden", type !== "credito");
+    const isCredit = type === "credito";
+    const lab = form.querySelector("#f-acc-opening-label");
+    const hint = form.querySelector("#f-acc-opening-hint");
+    const opening = form.querySelector("#f-acc-opening");
+    if (lab) lab.textContent = isCredit ? "Deuda total (MXN)" : "Saldo inicial (MXN)";
+    if (hint) {
+      hint.textContent = isCredit
+        ? "Pon el saldo que debes en positivo (ej. 7196.19). Vida lo guarda como deuda."
+        : "Saldo con el que empieza la cuenta.";
+    }
+    if (opening) {
+      opening.placeholder = isCredit ? "Ej. 7196.19" : "0";
+      if (isCredit) {
+        const n = parseMoneyInput(opening.value);
+        if (n != null && n < 0) opening.value = String(Math.abs(n));
+      }
+    }
   }
 
   function bindAccountForm() {
@@ -1695,7 +1735,7 @@
         color,
         icon,
         institution,
-        openingBalance: Number.isFinite(openingBalance) ? openingBalance : 0,
+        openingBalance: openingBalance != null ? openingBalance : 0,
         creditLimit: null,
         cutoffDay: null,
         paymentDueDay: null,
@@ -1714,15 +1754,24 @@
         const dueAmt = parseMoneyInput(dueRaw != null && String(dueRaw).trim() !== "" ? dueRaw : dueDom);
         data.amountDue = dueAmt != null && dueAmt > 0 ? dueAmt : null;
         data.payUrl = normalizePayUrl(fd.get("payUrl"));
+        // El usuario escribe la deuda en positivo; la convertimos a saldo negativo real
+        let debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
+        data.openingBalance = openingBalanceForCreditDebt(acc && acc.id, debtPos);
       }
       data.updatedAt = Date.now();
       if (acc) {
         Object.assign(acc, data);
-        toast(data.amountDue != null
-          ? `Cuenta actualizada · pagar ${formatMXN(data.amountDue)}`
-          : "Cuenta actualizada");
+        const debtNow = creditDebtAmount(acc);
+        toast(debtNow > 0
+          ? `Cuenta actualizada · deuda ${formatMXN(debtNow)}` + (data.amountDue != null ? ` · pagar ${formatMXN(data.amountDue)}` : "")
+          : (data.amountDue != null ? `Cuenta actualizada · pagar ${formatMXN(data.amountDue)}` : "Cuenta actualizada"));
       } else {
-        state.accounts.push({ id: uid(), ...data });
+        const created = { id: uid(), ...data };
+        if (type === "credito") {
+          const debtPos = openingBalance != null ? Math.abs(openingBalance) : 0;
+          created.openingBalance = openingBalanceForCreditDebt(created.id, debtPos);
+        }
+        state.accounts.push(created);
         toast("Cuenta creada");
       }
       saveState();
