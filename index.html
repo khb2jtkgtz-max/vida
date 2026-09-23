@@ -106,7 +106,7 @@
               <input type="month" id="fin-month" />
             </label>
             <button type="button" id="btn-import-mm" class="btn-ghost btn-sm">Importar MM</button>
-            <button type="button" id="btn-new-tx" class="btn-primary">+</button>
+            <button type="button" id="btn-new-tx" class="btn-primary btn-sm">+ Movimiento</button>
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
@@ -162,8 +162,12 @@
                 </select>
               </div>
             </div>
+            <div class="tx-quick-actions">
+              <button type="button" id="btn-new-ingreso" class="btn-tx-ingreso">+ Ingreso</button>
+              <button type="button" id="btn-new-gasto" class="btn-tx-gasto">+ Gasto</button>
+            </div>
             <ul id="tx-list" class="tx-list"></ul>
-            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes.</p>
+            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes. Usa + Ingreso o + Gasto.</p>
           </div>
           <div class="card">
             <h3>Por categoría</h3>

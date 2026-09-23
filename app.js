@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.28";
+  const APP_VERSION = "1.12.29";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2355,8 +2355,8 @@
     ).join("") + `<option value="__custom__">+ Nueva categoría…</option>`;
   }
 
-  function txFormHtml(tx) {
-    const type = tx ? tx.type : "gasto";
+  function txFormHtml(tx, presetType) {
+    const type = tx ? tx.type : (presetType === "ingreso" || presetType === "gasto" ? presetType : "gasto");
     const defaultAcc = defaultEfectivoAccount().id;
     const accId = tx ? (tx.accountId || defaultAcc) : defaultAcc;
     const pm = tx ? (tx.paymentMethod || "Efectivo") : "Efectivo";
@@ -2426,13 +2426,16 @@
     });
   }
 
-  function openTxModal(tx) {
+  function openTxModal(tx, presetType) {
     if (!state.accounts.length) {
       toast("Crea una cuenta primero");
       openAccountModal(null);
       return;
     }
-    openModal(tx ? "Editar movimiento" : "Nuevo movimiento", txFormHtml(tx), (fd) => {
+    const title = tx
+      ? "Editar movimiento"
+      : (presetType === "ingreso" ? "Nuevo ingreso" : (presetType === "gasto" ? "Nuevo gasto" : "Nuevo movimiento"));
+    openModal(title, txFormHtml(tx, presetType), (fd) => {
       const type = fd.get("type") || "gasto";
       let category = fd.get("category");
       if (category === "__custom__") {
@@ -2442,8 +2445,11 @@
           state.categories[type].push(category);
         }
       }
-      const amount = parseFloat(fd.get("amount"));
-      if (!(amount > 0)) return false;
+      const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-tx-amount")?.value);
+      if (!(amount > 0)) {
+        toast("Monto inválido");
+        return false;
+      }
       const accountId = fd.get("accountId");
       if (!accountId || !accountById(accountId)) {
         toast("Selecciona una cuenta");
@@ -2484,6 +2490,8 @@
     const accFilt = document.getElementById("fin-filter-account");
     if (accFilt) accFilt.addEventListener("change", renderFinanzas);
     document.getElementById("btn-new-tx").addEventListener("click", () => openTxModal(null));
+    document.getElementById("btn-new-ingreso")?.addEventListener("click", () => openTxModal(null, "ingreso"));
+    document.getElementById("btn-new-gasto")?.addEventListener("click", () => openTxModal(null, "gasto"));
     const btnAcc = document.getElementById("btn-new-account");
     if (btnAcc) btnAcc.addEventListener("click", () => openAccountModal(null));
     document.getElementById("btn-new-loan")?.addEventListener("click", openLoanModal);
