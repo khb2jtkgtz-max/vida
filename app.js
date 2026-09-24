@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.43";
+  const APP_VERSION = "1.12.44";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1413,6 +1413,8 @@
   function habitFormHtml(habit) {
     const indef = !habit || (!habit.startDate && !habit.endDate);
     const weekdays = habit ? habitWeekdays(habit) : ALL_WEEKDAYS.slice();
+    const startVal = habit && habit.startDate ? habit.startDate : "";
+    const endVal = habit && habit.endDate ? habit.endDate : "";
     return `
       <div class="form-grid">
         <div class="form-row">
@@ -1429,17 +1431,18 @@
         <input type="hidden" name="color" id="f-habit-color" value="${habit && habit.color ? escapeAttr(habit.color) : DEFAULT_GRAY}" />
         <div class="form-row">
           <label>Temporalidad / periodo</label>
-          <label class="check-inline"><input type="checkbox" id="f-habit-indef" name="indefinido" ${indef ? "checked" : ""} /> Indefinido</label>
-          <div class="form-row-inline" id="f-habit-period" ${indef ? 'style="display:none"' : ""}>
+          <label class="check-inline"><input type="checkbox" id="f-habit-indef" name="indefinido" ${indef ? "checked" : ""} /> Sin fechas (indefinido)</label>
+          <div class="form-row-inline" id="f-habit-period">
             <div class="form-row">
               <label for="f-habit-start">Inicio</label>
-              <input id="f-habit-start" name="startDate" type="date" value="${habit && habit.startDate ? habit.startDate : ""}" />
+              <input id="f-habit-start" name="startDate" type="date" value="${escapeAttr(startVal)}" ${indef ? "disabled" : ""} />
             </div>
             <div class="form-row">
               <label for="f-habit-end">Fin (opcional)</label>
-              <input id="f-habit-end" name="endDate" type="date" value="${habit && habit.endDate ? habit.endDate : ""}" />
+              <input id="f-habit-end" name="endDate" type="date" value="${escapeAttr(endVal)}" ${indef ? "disabled" : ""} />
             </div>
           </div>
+          <p class="field-hint">Desmarca “Sin fechas”, elige inicio (y fin si quieres) y Guarda. El calendario solo cuenta días dentro de ese periodo.</p>
         </div>
         <div class="form-row">
           <label>Días de la semana</label>
@@ -1467,30 +1470,52 @@
     `;
   }
 
-  function bindHabitFormColors() {
+  function bindHabitForm() {
     const indef = document.getElementById("f-habit-indef");
-    const period = document.getElementById("f-habit-period");
-    if (indef && period) {
-      indef.addEventListener("change", () => {
-        period.style.display = indef.checked ? "none" : "";
-        if (indef.checked) {
-          document.getElementById("f-habit-start").value = "";
-          document.getElementById("f-habit-end").value = "";
-        }
-      });
-    }
+    const startEl = document.getElementById("f-habit-start");
+    const endEl = document.getElementById("f-habit-end");
+    if (!indef || !startEl || !endEl) return;
+    const syncPeriodFields = () => {
+      const off = indef.checked;
+      startEl.disabled = off;
+      endEl.disabled = off;
+      if (off) {
+        startEl.value = "";
+        endEl.value = "";
+      } else if (!startEl.value) {
+        startEl.value = today();
+      }
+    };
+    indef.addEventListener("change", syncPeriodFields);
+    syncPeriodFields();
   }
 
   function openHabitModal(habit) {
     openModal(habit ? "Editar hábito" : "Nuevo hábito", habitFormHtml(habit), (fd) => {
-      const name = fd.get("name").trim();
+      const name = (fd.get("name") || "").trim();
       if (!name) return false;
-      const indefinido = fd.get("indefinido") === "on";
-      let startDate = indefinido ? null : (fd.get("startDate") || "").trim() || null;
-      let endDate = indefinido ? null : (fd.get("endDate") || "").trim() || null;
-      if (startDate && endDate && endDate < startDate) {
-        toast("La fecha fin debe ser ≥ inicio");
-        return false;
+      const indefEl = document.getElementById("f-habit-indef");
+      const startEl = document.getElementById("f-habit-start");
+      const endEl = document.getElementById("f-habit-end");
+      // Read from DOM (disabled date inputs are omitted from FormData)
+      const indefinido = !!(indefEl && indefEl.checked);
+      let startDate = null;
+      let endDate = null;
+      if (!indefinido) {
+        startDate = ((startEl && startEl.value) || fd.get("startDate") || "").trim() || null;
+        endDate = ((endEl && endEl.value) || fd.get("endDate") || "").trim() || null;
+        if (!startDate && !endDate) {
+          toast("Pon una fecha de inicio, o marca Sin fechas");
+          return false;
+        }
+        if (!startDate && endDate) {
+          toast("Pon también la fecha de inicio");
+          return false;
+        }
+        if (startDate && endDate && endDate < startDate) {
+          toast("La fecha fin debe ser ≥ inicio");
+          return false;
+        }
       }
       const weekdays = readWeekdaysFromForm(fd, "weekdays");
       const data = {
@@ -1505,19 +1530,25 @@
       };
       data.updatedAt = Date.now();
       if (habit) {
+        habit.startDate = startDate;
+        habit.endDate = endDate;
         Object.assign(habit, data);
-        toast("Hábito actualizado");
+        toast(indefinido
+          ? "Hábito actualizado · sin fechas"
+          : ("Hábito actualizado · " + formatPeriodLabel(startDate, endDate)));
       } else {
         const h = { id: uid(), ...data };
         state.habits.push(h);
         selectedHabitId = h.id;
-        toast("Hábito creado");
+        toast(indefinido
+          ? "Hábito creado · sin fechas"
+          : ("Hábito creado · " + formatPeriodLabel(startDate, endDate)));
       }
       saveState();
       renderHabitos();
       return true;
     });
-    bindHabitFormColors();
+    bindHabitForm();
   }
 
   function initHabitos() {
