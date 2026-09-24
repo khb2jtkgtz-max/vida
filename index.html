@@ -26,7 +26,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=11246" />
+  <link rel="stylesheet" href="styles.css?v=11247" />
 </head>
 <body>
   <div id="app">
@@ -134,6 +134,11 @@
             <span class="stat-label">Disponible</span>
             <strong id="fin-assets" class="stat-value">$0.00</strong>
             <span class="stat-hint" id="fin-assets-hint">A la mano · solo cuentas</span>
+          </button>
+          <button type="button" class="stat-card card receivable summary-tap" data-summary="cobrar" aria-label="Ver lo que está por cobrar">
+            <span class="stat-label">Por cobrar</span>
+            <strong id="fin-receivable" class="stat-value">$0.00</strong>
+            <span class="stat-hint" id="fin-receivable-hint">Te deben</span>
           </button>
           <button type="button" class="stat-card card debt-owe summary-tap" data-summary="debes" aria-label="Ver lo que debes">
             <span class="stat-label">Lo que debes</span>
@@ -365,6 +370,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11246"></script>
+  <script src="app.js?v=11247"></script>
 </body>
 </html>

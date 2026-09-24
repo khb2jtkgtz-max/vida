@@ -2237,7 +2237,7 @@ a { color: var(--primary); }
 
 .fin-summary-4 {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.45rem;
 }
 .fin-summary-4 .stat-card {
@@ -2262,7 +2262,7 @@ a { color: var(--primary); }
   .fin-summary-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .fin-summary-4 .fin-total-general { order: 0; }
+  .fin-summary-4 .fin-total-general { order: 0; grid-column: 1 / -1; }
 }
 
 

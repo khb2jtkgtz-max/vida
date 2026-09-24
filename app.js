@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.46";
+  const APP_VERSION = "1.12.47";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2390,6 +2390,14 @@
       body = `<p class="muted summary-detail-lead">Solo lo que está en tus cuentas (sin lo que te deben).</p>
         <ul class="summary-detail-list">${rows}</ul>
         <p class="summary-detail-total">Total <strong>${formatMXN(assets)}</strong></p>`;
+    } else if (kind === "cobrar") {
+      title = "Por cobrar";
+      const rows = loans.length
+        ? loans.map(({ loan, out }) => summaryRowHtml("👤", loan.person || "Sin nombre", "Te debe", out, "")).join("")
+        : `<li class="empty-hint">Nadie te debe.</li>`;
+      body = `<p class="muted summary-detail-lead">Lo que te deben y falta cobrar.</p>
+        <ul class="summary-detail-list">${rows}</ul>
+        <p class="summary-detail-total">Total <strong>${formatMXN(owedToMe)}</strong></p>`;
     } else if (kind === "debes") {
       title = "Lo que debes";
       const rows = debts.length
@@ -2427,7 +2435,7 @@
           ${summaryRowHtml("−", "Lo que debes", "Tarjetas + préstamos", debtTotal, "debt")}
         </ul>
         <p class="summary-detail-total">Sin deuda <strong class="${sinDeuda < 0 ? "debt" : ""}">${formatMXN(sinDeuda)}</strong></p>
-        <p class="muted" style="margin-top:0.75rem;font-size:0.85rem">Toca Patrimonio, Disponible o Lo que debes para ver el detalle de cada cuenta.</p>`;
+        <p class="muted" style="margin-top:0.75rem;font-size:0.85rem">Toca Patrimonio, Disponible, Por cobrar o Lo que debes para ver el detalle de cada cuenta.</p>`;
     }
 
     openModal(title, `<div class="summary-detail">${body}</div>`, () => true, { submitLabel: "Cerrar" });
@@ -2477,6 +2485,13 @@
     if (assetsEl) assetsEl.textContent = formatMXN(assets);
     const assetsHint = document.getElementById("fin-assets-hint");
     if (assetsHint) assetsHint.textContent = "A la mano · solo cuentas";
+    const recvEl = document.getElementById("fin-receivable");
+    if (recvEl) recvEl.textContent = formatMXN(owedToMe);
+    const recvHint = document.getElementById("fin-receivable-hint");
+    if (recvHint) {
+      const n = (state.loans || []).filter((l) => loanOutstanding(l) > 0).length;
+      recvHint.textContent = n ? `${n} ${n === 1 ? "persona" : "personas"} · te deben` : "Nadie te debe";
+    }
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
     const balEl = document.getElementById("fin-balance");
