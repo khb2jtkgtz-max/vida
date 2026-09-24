@@ -2609,3 +2609,6 @@ html[data-theme="light"] .tx-actions .btn-icon {
   border: 1px solid var(--border);
 }
 
+
+/* Color pickers removed — UI is grayscale only */
+.color-swatches { display: none !important; }

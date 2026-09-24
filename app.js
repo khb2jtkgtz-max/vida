@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.42";
+  const APP_VERSION = "1.12.43";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -59,6 +59,7 @@
     "#f5f5f5", "#d4d4d4", "#a3a3a3", "#737373",
     "#525252", "#404040", "#262626", "#ffffff"
   ];
+  const DEFAULT_GRAY = "#a3a3a3";
 
   const DEFAULT_CATEGORIES = {
     ingreso: ["Salario", "Freelance", "Ventas", "Inversiones", "Otros ingresos"],
@@ -375,7 +376,7 @@
         a.openingBalance = Number(a.openingBalance) || 0;
         changed = true;
       }
-      if (!a.color) { a.color = HABIT_COLORS[0]; changed = true; }
+      if (!a.color) { a.color = DEFAULT_GRAY; changed = true; }
       if (!a.icon) { a.icon = accountTypeMeta(a.type).icon; changed = true; }
       if (!a.type) { a.type = "otro"; changed = true; }
       if (a.institution === undefined) { a.institution = null; changed = true; }
@@ -1247,7 +1248,7 @@
         h.frequency ? escapeHtml(h.frequency) : null
       ].filter(Boolean);
       li.innerHTML = `
-        <span class="habit-dot" style="background:${h.color}"></span>
+        <span class="habit-dot" style="background:${h.color || DEFAULT_GRAY}"></span>
         <div class="habit-item-info">
           <strong>${escapeHtml(h.name)}</strong>
           <span>${metaBits.join(" · ")}</span>
@@ -1410,9 +1411,6 @@
   }
 
   function habitFormHtml(habit) {
-    const colors = HABIT_COLORS.map((c) =>
-      `<button type="button" class="color-swatch${habit && habit.color === c ? " selected" : (!habit && c === HABIT_COLORS[0] ? " selected" : "")}" data-color="${c}" style="background:${c}" aria-label="Color"></button>`
-    ).join("");
     const indef = !habit || (!habit.startDate && !habit.endDate);
     const weekdays = habit ? habitWeekdays(habit) : ALL_WEEKDAYS.slice();
     return `
@@ -1428,11 +1426,7 @@
             <label class="radio-pill"><input type="radio" name="type" value="mal" ${habit && habit.type === "mal" ? "checked" : ""} /> Mal hábito</label>
           </div>
         </div>
-        <div class="form-row">
-          <label>Color</label>
-          <div class="color-swatches" id="f-habit-colors">${colors}</div>
-          <input type="hidden" name="color" id="f-habit-color" value="${habit ? habit.color : HABIT_COLORS[0]}" />
-        </div>
+        <input type="hidden" name="color" id="f-habit-color" value="${habit && habit.color ? escapeAttr(habit.color) : DEFAULT_GRAY}" />
         <div class="form-row">
           <label>Temporalidad / periodo</label>
           <label class="check-inline"><input type="checkbox" id="f-habit-indef" name="indefinido" ${indef ? "checked" : ""} /> Indefinido</label>
@@ -1474,13 +1468,6 @@
   }
 
   function bindHabitFormColors() {
-    document.querySelectorAll("#f-habit-colors .color-swatch").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("#f-habit-colors .color-swatch").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
-        document.getElementById("f-habit-color").value = btn.dataset.color;
-      });
-    });
     const indef = document.getElementById("f-habit-indef");
     const period = document.getElementById("f-habit-period");
     if (indef && period) {
@@ -1509,7 +1496,7 @@
       const data = {
         name,
         type: fd.get("type") || "buen",
-        color: fd.get("color") || HABIT_COLORS[0],
+        color: fd.get("color") || DEFAULT_GRAY,
         frequency: (fd.get("frequency") || "").trim(),
         startDate,
         endDate,
@@ -2002,10 +1989,7 @@
 
   function accountFormHtml(acc) {
     const type = acc ? acc.type : "efectivo";
-    const color = acc ? acc.color : HABIT_COLORS[0];
-    const colors = HABIT_COLORS.map((c) =>
-      `<button type="button" class="color-swatch${c === color ? " selected" : ""}" data-color="${c}" style="background:${c}" aria-label="Color"></button>`
-    ).join("");
+    const color = acc && acc.color ? acc.color : DEFAULT_GRAY;
     const creditLimit = acc && acc.creditLimit != null ? acc.creditLimit : "";
     const cutoffDay = acc && acc.cutoffDay != null ? acc.cutoffDay : "";
     const paymentDueDay = acc && acc.paymentDueDay != null ? acc.paymentDueDay : "";
@@ -2057,12 +2041,8 @@
           </div>
           <p class="field-hint">Si el día de pago es anterior al de corte (ej. corte 11, pago 2), el vencimiento es el 2 del mes siguiente al corte.</p>
         </div>
-        <div class="form-row">
-          <label>Color</label>
-          <div class="color-swatches" id="f-acc-colors">${colors}</div>
-          <input type="hidden" name="color" id="f-acc-color" value="${escapeAttr(color)}" />
-          <input type="hidden" name="icon" id="f-acc-icon" value="${escapeAttr(acc && acc.icon ? acc.icon : accountTypeMeta(type).icon)}" />
-        </div>
+        <input type="hidden" name="color" id="f-acc-color" value="${escapeAttr(color)}" />
+        <input type="hidden" name="icon" id="f-acc-icon" value="${escapeAttr(acc && acc.icon ? acc.icon : accountTypeMeta(type).icon)}" />
       </div>
     `;
   }
@@ -2099,13 +2079,6 @@
   function bindAccountForm() {
     const form = document.getElementById("modal-form");
     const typeSel = form.querySelector("#f-acc-type");
-    document.querySelectorAll("#f-acc-colors .color-swatch").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll("#f-acc-colors .color-swatch").forEach((b) => b.classList.remove("selected"));
-        btn.classList.add("selected");
-        form.querySelector("#f-acc-color").value = btn.dataset.color;
-      });
-    });
     typeSel.addEventListener("change", () => {
       const meta = accountTypeMeta(typeSel.value);
       const iconInput = form.querySelector("#f-acc-icon");
@@ -2117,12 +2090,9 @@
         form.querySelector("#f-acc-name").value = btn.dataset.name || "";
         form.querySelector("#f-acc-institution").value = btn.dataset.name || "";
         typeSel.value = btn.dataset.type || "otro";
-        form.querySelector("#f-acc-color").value = btn.dataset.color || HABIT_COLORS[0];
+        form.querySelector("#f-acc-color").value = DEFAULT_GRAY;
         form.querySelector("#f-acc-icon").value = btn.dataset.icon || accountTypeMeta(typeSel.value).icon;
         form.dataset.presetIcon = "1";
-        document.querySelectorAll("#f-acc-colors .color-swatch").forEach((b) => {
-          b.classList.toggle("selected", b.dataset.color === btn.dataset.color);
-        });
         toggleCreditFields();
       });
     });
@@ -2135,7 +2105,7 @@
       if (!name) return false;
       const type = fd.get("type") || "otro";
       const openingBalance = parseMoneyInput(fd.get("openingBalance") ?? document.getElementById("f-acc-opening")?.value);
-      const color = fd.get("color") || HABIT_COLORS[0];
+      const color = DEFAULT_GRAY;
       const icon = (fd.get("icon") || "").trim() || accountTypeMeta(type).icon;
       const institution = (fd.get("institution") || "").trim() || null;
       const data = {
@@ -3481,7 +3451,7 @@
     cols.forEach((c) => { html += `<div class="gantt-col-head">${c.label}</div>`; });
     html += `</div>`;
 
-    const palette = HABIT_COLORS;
+    const palette = ["#d4d4d4", "#a3a3a3", "#737373", "#525252", "#404040", "#262626"];
 
     state.projects.forEach((p, pi) => {
       const color = palette[pi % palette.length];
