@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.35";
+  const APP_VERSION = "1.12.36";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2414,17 +2414,12 @@
       card.className = "loan-card" + (outstanding <= 0 ? " paid" : "");
       card.innerHTML = `
         <div class="loan-card-main">
-          <div><strong>${escapeHtml(loan.person || "Sin nombre")}</strong><span class="loan-date">Prestado ${escapeHtml(loan.date || "")}</span></div>
+          <div><strong>${escapeHtml(loan.person || "Sin nombre")}</strong><span class="loan-date">${escapeHtml(loan.date || "")}</span></div>
           <div class="loan-due"><span>Te deben</span><strong>${formatMXN(outstanding)}</strong></div>
         </div>
-        <div class="loan-meta">
-          <span>Original: ${formatMXN(loan.amount)}</span>
-          <span>${last ? `Último abono: ${escapeHtml(last.date)} · ${formatMXN(last.amount)}` : "Sin abonos"}</span>
-          ${loan.note ? `<span>${escapeHtml(loan.note)}</span>` : ""}
-        </div>
         <div class="loan-actions">
-          <button type="button" class="btn-primary btn-sm" data-pay ${outstanding <= 0 ? "disabled" : ""}>Registrar cobro / abono</button>
-          <button type="button" class="btn-danger btn-sm" data-delete>Eliminar</button>
+          <button type="button" class="btn-primary btn-sm" data-pay ${outstanding <= 0 ? "disabled" : ""}>Registrar abono</button>
+          <button type="button" class="btn-ghost btn-sm" data-delete>Eliminar</button>
         </div>`;
       card.querySelector("[data-pay]").addEventListener("click", () => openLoanPaymentModal(loan));
       card.querySelector("[data-delete]").addEventListener("click", async () => {
@@ -2474,30 +2469,34 @@
 
   function openLoanPaymentModal(loan) {
     const outstanding = loanOutstanding(loan);
-    openModal(`Registrar abono de ${loan.person}`, `
+    openModal("Registrar abono", `
       <div class="form-grid">
-        <p class="muted">Pendiente: <strong>${formatMXN(outstanding)}</strong></p>
+        <p class="muted">${escapeHtml(loan.person || "")} te debe <strong>${formatMXN(outstanding)}</strong></p>
         <div class="form-row-inline">
-          <div class="form-row"><label for="f-payment-amount">Monto (MXN)</label><input id="f-payment-amount" name="amount" type="number" step="0.01" min="0.01" max="${outstanding}" required /></div>
+          <div class="form-row"><label for="f-payment-amount">Monto del abono (MXN)</label><input id="f-payment-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" required placeholder="Ej. 500" /></div>
           <div class="form-row"><label for="f-payment-date">Fecha</label><input id="f-payment-date" name="date" type="date" required value="${today()}" /></div>
         </div>
-        <div class="form-row"><label for="f-payment-account">Cuenta que recibió el dinero</label><select id="f-payment-account" name="accountId">${optionalAccountOptionsHtml("")}</select><p class="field-hint">Si eliges una cuenta, también se registrará el ingreso.</p></div>
+        <div class="form-row"><label for="f-payment-account">¿A qué cuenta entra?</label><select id="f-payment-account" name="accountId">${optionalAccountOptionsHtml("")}</select></div>
         <div class="form-row"><label for="f-payment-note">Nota</label><input id="f-payment-note" name="note" maxlength="160" placeholder="Opcional" /></div>
       </div>`, (fd) => {
-      const amount = parseFloat(fd.get("amount"));
+      const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-payment-amount")?.value);
       const date = String(fd.get("date") || "");
       const accountId = String(fd.get("accountId") || "");
-      if (!(amount > 0) || amount > loanOutstanding(loan) + 0.001 || !date) return false;
-      const payment = { id: uid(), amount, date, note: String(fd.get("note") || "").trim() };
-      if (accountId) payment.accountId = accountId;
+      if (!(amount > 0) || amount > loanOutstanding(loan) + 0.001 || !date) {
+        toast("Revisa el monto del abono");
+        return false;
+      }
+      const payment = { id: uid(), amount, date, note: String(fd.get("note") || "").trim(), accountId: accountId || null };
       if (!Array.isArray(loan.payments)) loan.payments = [];
       loan.payments.push(payment);
       if (accountId && accountById(accountId)) {
-        ensureFinanceCategory("ingreso", "Cobro de préstamo");
-        state.transactions.push({ id: uid(), type: "ingreso", amount, category: "Cobro de préstamo", date, note: `Abono de ${loan.person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id, _loanPaymentId: payment.id });
+        ensureFinanceCategory("ingreso", "Abono");
+        state.transactions.push({ id: uid(), type: "ingreso", amount, category: "Abono", date, note: `Abono de ${loan.person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id, _loanPaymentId: payment.id });
       }
-      saveState(); renderFinanzas(); toast("Abono registrado"); return true;
-    });
+      saveState(); renderFinanzas();
+      toast(loanOutstanding(loan) <= 0 ? "Abono registrado · saldado" : "Abono registrado");
+      return true;
+    }, { submitLabel: "Registrar abono" });
   }
 
   function categoryOptions(type, selected) {
