@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.47";
+  const APP_VERSION = "1.12.48";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2785,7 +2785,7 @@
     const accId = tx ? (tx.accountId || defaultAcc) : defaultAcc;
     const pm = tx ? (tx.paymentMethod || "Efectivo") : "Efectivo";
     const acc = accountById(accId);
-    const showMsi = type === "gasto" && acc && acc.type === "credito";
+    const showMsi = type === "gasto";
     const msiOn = tx && Number(tx.msiMonths) > 1;
     const msiMonths = msiOn ? Number(tx.msiMonths) : 6;
     const msiOpts = MSI_MONTH_OPTIONS.map((n) =>
@@ -2828,6 +2828,7 @@
               <label class="radio-pill"><input type="radio" name="msiMode" id="f-tx-msi" value="msi" ${msiOn ? "checked" : ""} /> MSI</label>
             </div>
           </div>
+          <p id="f-tx-msi-hint" class="field-hint hidden">MSI solo con tarjeta de crédito: elige la tarjeta en Cuenta.</p>
           <div id="f-tx-msi-fields" class="form-row-inline${msiOn ? "" : " hidden"}">
             <div class="form-row">
               <label for="f-tx-msi-months">Meses</label>
@@ -2886,18 +2887,26 @@
     };
 
     const msiModeOn = () => form.querySelector('input[name="msiMode"]:checked')?.value === "msi";
-    const refreshMsi = () => {
+    const refreshMsi = (ev) => {
       const type = form.querySelector('input[name="type"]:checked')?.value || "gasto";
-      const acc = accountById(accSel?.value);
-      const canMsi = type === "gasto" && acc && acc.type === "credito";
-      if (msiWrap) msiWrap.classList.toggle("hidden", !canMsi);
-      if (!canMsi) {
+      let acc = accountById(accSel?.value);
+      const isGasto = type === "gasto";
+      if (msiWrap) msiWrap.classList.toggle("hidden", !isGasto);
+      if (!isGasto) {
         const off = form.querySelector("#f-tx-msi-off");
         if (off) off.checked = true;
       }
-      const on = canMsi && msiModeOn();
+      // Al elegir MSI con una cuenta que no es tarjeta, cambia a la primera tarjeta
+      if (isGasto && msiModeOn() && (!acc || acc.type !== "credito") && ev && ev.target && ev.target.name === "msiMode") {
+        const card = (state.accounts || []).find((a) => a.type === "credito" && !a.archived);
+        if (card && accSel) { accSel.value = card.id; acc = card; }
+      }
+      const isCard = !!(acc && acc.type === "credito");
+      const hint = form.querySelector("#f-tx-msi-hint");
+      if (hint) hint.classList.toggle("hidden", !(isGasto && msiModeOn() && !isCard));
+      const on = isGasto && isCard && msiModeOn();
       if (msiFields) msiFields.classList.toggle("hidden", !on);
-      if (canMsi) {
+      if (on) {
         const pmSel = form.querySelector("#f-tx-pm");
         if (pmSel && (pmSel.value === "Efectivo" || pmSel.value === "Débito")) {
           const opt = [...pmSel.options].find((o) => /cr[eé]dito/i.test(o.value));
