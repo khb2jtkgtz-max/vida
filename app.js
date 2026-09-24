@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.56";
+  const APP_VERSION = "1.12.57";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -645,9 +645,7 @@
     let net = 0;
     state.transactions.forEach((tx) => {
       if (tx.accountId !== accountId) return;
-      const amt = Number(tx.amount) || 0;
-      if (tx.type === "ingreso") net += amt;
-      else net -= amt;
+      net += txSignedImpact(tx);
     });
     return net;
   }
@@ -666,15 +664,41 @@
     return Math.round((want - txNet) * 100) / 100;
   }
 
+
+  /** Impacto en saldo de un movimiento. MSI diferido: solo meses ya marcados. */
+  function isMsiPlan(t) {
+    return !!(t && t.type === "gasto" && Number(t.msiMonths) >= 1);
+  }
+
+  function msiPostedAmount(t) {
+    if (!isMsiPlan(t)) return Number(t.amount) || 0;
+    const months = Number(t.msiMonths) || 0;
+    const paid = Math.max(0, Math.min(months, Number(t.msiPaidMonths) || 0));
+    const monthly = Number(t.msiMonthly) || (months ? (Number(t.amount) || 0) / months : 0);
+    return Math.round(paid * monthly * 100) / 100;
+  }
+
+  function txSignedImpact(t) {
+    if (!t) return 0;
+    if (t._msiInstallment) {
+      const amt = Number(t.amount) || 0;
+      return t.type === "ingreso" ? amt : -amt;
+    }
+    if (isMsiPlan(t)) {
+      // Plan MSI: no descuenta el total; solo lo ya "llegado" (meses marcados)
+      return -msiPostedAmount(t);
+    }
+    const amt = Number(t.amount) || 0;
+    return t.type === "ingreso" ? amt : -amt;
+  }
+
   function accountBalance(accountId) {
     const acc = state.accounts.find((a) => a.id === accountId);
     if (!acc) return 0;
     let bal = Number(acc.openingBalance) || 0;
     state.transactions.forEach((t) => {
       if (t.accountId !== accountId) return;
-      const amt = Number(t.amount) || 0;
-      if (t.type === "ingreso") bal += amt;
-      else bal -= amt;
+      bal += txSignedImpact(t);
     });
     return bal;
   }
@@ -2314,11 +2338,15 @@
         </div>`;
       li.querySelector("[data-edit]").addEventListener("click", () => openEditMovement(t));
       li.querySelector("[data-mark]").addEventListener("click", () => {
+        const monthly = Number(t.msiMonthly) || (months ? (Number(t.amount) || 0) / months : 0);
         t.msiPaidMonths = Math.min(months, paid + 1);
         t.updatedAt = Date.now();
         saveState();
         renderFinanzas();
-        toast(t.msiPaidMonths >= months ? "MSI liquidado" : `MSI ${t.msiPaidMonths}/${months}`);
+        const hit = formatMXN(monthly);
+        toast(t.msiPaidMonths >= months
+          ? `MSI liquidado · se cargó ${hit} a la tarjeta`
+          : `MSI ${t.msiPaidMonths}/${months} · se cargó ${hit} a la tarjeta`);
       });
       list.appendChild(li);
     });
@@ -2474,6 +2502,12 @@
     txs.forEach((t) => {
       // Las transferencias entre cuentas no cuentan como ingreso/gasto del mes
       if (t.category === "Transferencia" || t._transferPair) return;
+      if (t._creditPayPair) return;
+      if (isMsiPlan(t)) {
+        // Solo lo que ya se marcó de MSI (no el total del plan)
+        gastos += msiPostedAmount(t);
+        return;
+      }
       if (t.type === "ingreso") ingresos += Number(t.amount);
       else gastos += Number(t.amount);
     });
@@ -2571,8 +2605,17 @@
       });
 
       [...grouped.entries()].forEach(([dateKey, dayTxs]) => {
-        const dayIngresos = dayTxs.reduce((sum, t) => sum + (t.type === "ingreso" ? Number(t.amount) : 0), 0);
-        const dayGastos = dayTxs.reduce((sum, t) => sum + (t.type === "gasto" ? Number(t.amount) : 0), 0);
+        const dayIngresos = dayTxs.reduce((sum, t) => {
+          if (t.category === "Transferencia" || t._transferPair || t._creditPayPair) return sum;
+          if (t.type === "ingreso") return sum + Number(t.amount);
+          return sum;
+        }, 0);
+        const dayGastos = dayTxs.reduce((sum, t) => {
+          if (t.category === "Transferencia" || t._transferPair || t._creditPayPair) return sum;
+          if (isMsiPlan(t)) return sum + msiPostedAmount(t);
+          if (t.type === "gasto") return sum + Number(t.amount);
+          return sum;
+        }, 0);
         const dayNeto = dayIngresos - dayGastos;
         const group = document.createElement("li");
         group.className = "tx-day-group";
@@ -2598,7 +2641,7 @@
           const isMsi = t.type === "gasto" && Number(t.msiMonths) >= 1;
           const msiPaid = Number(t.msiPaidMonths) || 0;
           const msiBadge = isMsi
-            ? `<span class="tx-msi-badge">MSI ${msiPaid}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes</span>`
+            ? `<span class="tx-msi-badge">MSI ${msiPaid}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes · en tarjeta ${formatMXN(msiPostedAmount(t))}</span>`
             : "";
           li.className = "tx-item" + (isMsi ? " has-msi" : "");
           const isTransfer = !!(t._transferPair || t.category === "Transferencia");
@@ -2656,8 +2699,11 @@
     const allMonth = txs; // already account-filtered (incl. transfer mates)
     const byCat = {};
     allMonth.forEach((t) => {
+      if (t.category === "Transferencia" || t._transferPair || t._creditPayPair) return;
       const key = t.type + ":" + t.category;
-      byCat[key] = (byCat[key] || 0) + Number(t.amount);
+      const amt = isMsiPlan(t) ? msiPostedAmount(t) : Number(t.amount);
+      if (!(amt > 0)) return;
+      byCat[key] = (byCat[key] || 0) + amt;
     });
     const entries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
     const chart = document.getElementById("fin-chart");
@@ -2841,7 +2887,7 @@
               <label class="radio-pill"><input type="radio" name="msiMode" id="f-tx-msi" value="msi" ${msiOn ? "checked" : ""} /> MSI</label>
             </div>
           </div>
-          <p id="f-tx-msi-hint" class="field-hint hidden">MSI solo con tarjeta de crédito: elige la tarjeta en Cuenta.</p>
+          <p id="f-tx-msi-hint" class="field-hint hidden">MSI solo con tarjeta. El total no se carga de golpe: ve marcando cada mes en MSI activos.</p>
           <div id="f-tx-msi-fields" class="form-row-inline${msiOn ? "" : " hidden"}">
             <div class="form-row">
               <label for="f-tx-msi-months">Meses</label>
@@ -3247,7 +3293,7 @@
       } else {
         state.transactions.push({ id: uid(), ...data });
         toast(data.msiMonths
-          ? `Gasto MSI ${data.msiMonths} meses · ${formatMXN(data.msiMonthly)}/mes`
+          ? `MSI ${data.msiMonths}×${formatMXN(data.msiMonthly)} · aún no carga la tarjeta (marca cada mes)`
           : "Movimiento guardado");
       }
       saveState();
