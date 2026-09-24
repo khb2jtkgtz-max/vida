@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.44";
+  const APP_VERSION = "1.12.45";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1299,24 +1299,17 @@
     const stats = monthStats(habit.id, calYear, calMonth);
     const statsEl = document.getElementById("habit-stats");
     const weekProg = habitWeekProgress(habit);
-    const weekPill = `<div class="stat-pill${weekProg.met ? " week-met" : ""}">Esta semana <strong>${weekProg.done}/${weekProg.goal}</strong></div>`;
-    if (habit.type === "mal") {
-      statsEl.innerHTML = `
-        <div class="stat-pill">Caídas <strong>${stats.bad}</strong></div>
-        <div class="stat-pill">Evitado <strong>${stats.miss}</strong></div>
-        <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
-        <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
-        ${weekPill}
-      `;
-    } else {
-      statsEl.innerHTML = `
-        <div class="stat-pill">Hechos <strong>${stats.done}</strong></div>
-        <div class="stat-pill">Incumplidos <strong>${stats.miss}</strong></div>
-        <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
-        <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
-        ${weekPill}
-      `;
-    }
+    const metaPct = weekProg.goal > 0
+      ? Math.min(999, Math.round((weekProg.done / weekProg.goal) * 100))
+      : 0;
+    // Del mes visible: hechos / fallados (mal hábito: evitado = hecho, caída = fallado)
+    const hechos = habit.type === "mal" ? stats.miss : stats.done;
+    const fallados = habit.type === "mal" ? stats.bad : stats.miss;
+    statsEl.innerHTML = `
+      <div class="stat-pill${weekProg.met ? " week-met" : ""}">Meta <strong>${metaPct}%</strong></div>
+      <div class="stat-pill">Hechos <strong>${hechos}</strong></div>
+      <div class="stat-pill">Fallados <strong>${fallados}</strong></div>
+    `;
 
     document.getElementById("cal-month-label").textContent =
       MONTHS_ES[calMonth] + " " + calYear;
