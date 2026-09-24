@@ -1182,6 +1182,12 @@ a { color: var(--primary); }
 .badge.activo { background: var(--success-dim); color: var(--success); }
 .badge.pausado { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
 .badge.terminado { background: rgba(161,161,170,0.18); color: var(--muted); }
+.project-item-main .badge { margin-top: 0; flex-shrink: 0; }
+.project-item-main {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
 
 .project-detail-header {
   display: flex;
