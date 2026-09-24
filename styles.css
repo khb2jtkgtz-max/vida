@@ -2168,3 +2168,31 @@ a { color: var(--primary); }
     font-size: 0.72rem;
   }
 }
+
+
+.tx-icon.msi {
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--warn);
+  font-size: 0.55rem;
+  letter-spacing: 0.02em;
+}
+.tx-msi-badge {
+  display: inline-block;
+  margin: 0.15rem 0 0.2rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--warn);
+  background: rgba(245, 158, 11, 0.14);
+}
+.msi-form-block {
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  margin: 0.15rem 0 0.35rem;
+}
+.msi-form-block.hidden { display: none !important; }
+.msi-mode-group { margin-top: 0.25rem; }

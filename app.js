@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.32";
+  const APP_VERSION = "1.12.33";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2286,14 +2286,18 @@
           const acc = accountById(t.accountId);
           const accLabel = acc ? `${acc.icon || ""} ${acc.name}` : "Sin cuenta";
           const pm = t.paymentMethod ? ` · ${t.paymentMethod}` : "";
-          const msiBit = (t.type === "gasto" && Number(t.msiMonths) > 1)
-            ? ` · MSI ${Number(t.msiPaidMonths) || 0}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes`
+          const isMsi = t.type === "gasto" && Number(t.msiMonths) > 1;
+          const msiPaid = Number(t.msiPaidMonths) || 0;
+          const msiBadge = isMsi
+            ? `<span class="tx-msi-badge">MSI ${msiPaid}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes</span>`
             : "";
+          li.className = "tx-item" + (isMsi ? " has-msi" : "");
           li.innerHTML = `
-            <div class="tx-icon ${t.type}">${t.type === "ingreso" ? "IN" : "GA"}</div>
+            <div class="tx-icon ${t.type}${isMsi ? " msi" : ""}">${isMsi ? "MSI" : (t.type === "ingreso" ? "IN" : "GA")}</div>
             <div class="tx-info">
               <strong>${escapeHtml(t.category)}</strong>
-              <span>${escapeHtml(accLabel)}${escapeHtml(pm)}${msiBit}${t.note ? " · " + escapeHtml(t.note) : ""}</span>
+              ${msiBadge}
+              <span>${escapeHtml(accLabel)}${escapeHtml(pm)}${t.note ? " · " + escapeHtml(t.note) : ""}</span>
             </div>
             <div class="tx-amount ${t.type}">${sign}${formatMXN(t.amount)}</div>
             <div class="tx-actions">
@@ -2500,14 +2504,17 @@
             <select id="f-tx-pm" name="paymentMethod">${paymentMethodOptionsHtml(pm)}</select>
           </div>
         </div>
-        <div id="f-tx-msi-wrap" class="credit-fields${showMsi ? "" : " hidden"}">
+        <div id="f-tx-msi-wrap" class="msi-form-block${showMsi ? "" : " hidden"}">
           <div class="form-row">
-            <label class="check-row"><input type="checkbox" id="f-tx-msi" name="msi" ${msiOn ? "checked" : ""} /> Es MSI (meses sin intereses)</label>
-            <p class="field-hint">La deuda de la tarjeta sube por el monto total; aquí guardamos en cuántos meses queda.</p>
+            <label>¿Cómo pagas?</label>
+            <div class="radio-group msi-mode-group">
+              <label class="radio-pill"><input type="radio" name="msiMode" id="f-tx-msi-off" value="contado" ${msiOn ? "" : "checked"} /> Contado</label>
+              <label class="radio-pill"><input type="radio" name="msiMode" id="f-tx-msi" value="msi" ${msiOn ? "checked" : ""} /> MSI</label>
+            </div>
           </div>
           <div id="f-tx-msi-fields" class="form-row-inline${msiOn ? "" : " hidden"}">
             <div class="form-row">
-              <label for="f-tx-msi-months">Plazo MSI</label>
+              <label for="f-tx-msi-months">Meses</label>
               <select id="f-tx-msi-months" name="msiMonths">${msiOpts}</select>
             </div>
             <div class="form-row">
@@ -2562,14 +2569,25 @@
       msiMonthly.textContent = formatMXN(Math.round((amt / months) * 100) / 100);
     };
 
+    const msiModeOn = () => form.querySelector('input[name="msiMode"]:checked')?.value === "msi";
     const refreshMsi = () => {
       const type = form.querySelector('input[name="type"]:checked')?.value || "gasto";
       const acc = accountById(accSel?.value);
       const canMsi = type === "gasto" && acc && acc.type === "credito";
       if (msiWrap) msiWrap.classList.toggle("hidden", !canMsi);
-      if (!canMsi && msiCheck) msiCheck.checked = false;
-      const on = canMsi && msiCheck && msiCheck.checked;
+      if (!canMsi) {
+        const off = form.querySelector("#f-tx-msi-off");
+        if (off) off.checked = true;
+      }
+      const on = canMsi && msiModeOn();
       if (msiFields) msiFields.classList.toggle("hidden", !on);
+      if (canMsi) {
+        const pmSel = form.querySelector("#f-tx-pm");
+        if (pmSel && (pmSel.value === "Efectivo" || pmSel.value === "Débito")) {
+          const opt = [...pmSel.options].find((o) => /cr[eé]dito/i.test(o.value));
+          if (opt) pmSel.value = opt.value;
+        }
+      }
       refreshMsiMonthly();
     };
 
@@ -2585,7 +2603,7 @@
       }
     });
     accSel?.addEventListener("change", refreshMsi);
-    msiCheck?.addEventListener("change", refreshMsi);
+    form.querySelectorAll('input[name="msiMode"]').forEach((r) => r.addEventListener("change", refreshMsi));
     msiMonths?.addEventListener("change", refreshMsiMonthly);
     amountInp?.addEventListener("input", refreshMsiMonthly);
     refreshMsi();
@@ -2735,7 +2753,8 @@
       const accObj = accountById(accountId);
       let msiMonths = null;
       let msiMonthly = null;
-      const msiChecked = document.getElementById("f-tx-msi")?.checked;
+      const msiChecked = document.querySelector('input[name="msiMode"]:checked')?.value === "msi"
+        || document.getElementById("f-tx-msi")?.checked;
       if (type === "gasto" && accObj && accObj.type === "credito" && msiChecked) {
         const months = parseInt(fd.get("msiMonths") ?? document.getElementById("f-tx-msi-months")?.value, 10);
         if (months >= 2) {
