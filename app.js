@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.39";
+  const APP_VERSION = "1.12.40";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -17,6 +17,43 @@
   const SYNC_NS_PREFIX = "vida"; // MantleDB namespace: vida-<syncId>
   const MANTLE_BASE = "https://mantledb.sh/v2";
   const SYNC_DEBOUNCE_MS = 1500;
+
+
+  const THEME_KEY = "vida-theme";
+
+  function getTheme() {
+    try {
+      const t = localStorage.getItem(THEME_KEY);
+      return t === "light" || t === "dark" ? t : "dark";
+    } catch (_) {
+      return "dark";
+    }
+  }
+
+  function applyTheme(t) {
+    const theme = t === "light" ? "light" : "dark";
+    try { localStorage.setItem(THEME_KEY, theme); } catch (_) {}
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.style.colorScheme = theme;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+    const btn = document.getElementById("btn-theme");
+    if (btn) {
+      btn.textContent = theme === "light" ? "☀ Claro" : "☾ Oscuro";
+      btn.title = theme === "light" ? "Cambiar a fondo negro" : "Cambiar a fondo blanco";
+    }
+    const more = document.getElementById("btn-theme-more");
+    if (more) {
+      more.textContent = theme === "light" ? "Fondo: Blanco ↔ Negro" : "Fondo: Negro ↔ Blanco";
+    }
+  }
+
+  function toggleTheme() {
+    const next = getTheme() === "light" ? "dark" : "light";
+    applyTheme(next);
+    toast(next === "light" ? "Fondo blanco" : "Fondo negro");
+  }
+
 
   const HABIT_COLORS = [
     "#f5f5f5", "#d4d4d4", "#a3a3a3", "#737373",
@@ -438,6 +475,48 @@
     if (!isInDateRange(dateStr, habit.startDate || null, habit.endDate || null)) return false;
     return habitWeekdays(habit).includes(dowMon0(parseISO(dateStr)));
   }
+
+
+  /** Lunes–domingo containing date (Mexico week). Returns ISO {start, end}. */
+  function weekRangeContaining(date) {
+    const d = date instanceof Date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : parseISO(String(date).slice(0, 10));
+    const mon0 = dowMon0(d);
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - mon0);
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    return { start: isoDate(start), end: isoDate(end) };
+  }
+
+  /** Progress toward weekly goal (or weekday count) in current week. */
+  function habitWeekProgress(habit, refDate) {
+    const ref = refDate ? (refDate instanceof Date ? refDate : parseISO(String(refDate).slice(0, 10))) : new Date();
+    const { start, end } = weekRangeContaining(ref);
+    const wd = habitWeekdays(habit);
+    let goal = Number(habit && habit.weeklyGoal);
+    if (!Number.isFinite(goal) || goal < 1) goal = 0;
+    let scheduledInWeek = 0;
+    let done = 0;
+    const cursor = parseISO(start);
+    const endD = parseISO(end);
+    while (cursor.getTime() <= endD.getTime()) {
+      const ds = isoDate(cursor);
+      if (isHabitScheduled(habit, ds)) {
+        scheduledInWeek++;
+        const mark = getMark(habit.id, ds);
+        if (isStreakSuccess(habit, mark)) done++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    if (!goal) goal = scheduledInWeek || wd.length;
+    const met = goal > 0 && done >= goal;
+    return { done, goal, met, start, end };
+  }
+
+  function normalizeWeeklyGoal(raw) {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.min(7, Math.max(1, Math.round(n)));
+  }
+
 
   function workdaysOf(entity) {
     return normalizeWeekdays(entity && entity.workdays);
@@ -1157,9 +1236,14 @@
         if (mark === "done") { btnClass += " done"; btnLabel = "✓"; }
         else if (mark === "miss") { btnClass += " miss"; btnLabel = "✕"; }
       }
+      const weekProg = habitWeekProgress(h);
+      const goalLabel = h.weeklyGoal
+        ? `Meta ${Number(h.weeklyGoal)}/sem · ${weekProg.done}/${weekProg.goal}`
+        : null;
       const metaBits = [
         h.type === "mal" ? "Mal hábito" : "Buen hábito",
         formatWeekdaysShort(h.weekdays),
+        goalLabel,
         h.frequency ? escapeHtml(h.frequency) : null
       ].filter(Boolean);
       li.innerHTML = `
@@ -1207,12 +1291,15 @@
 
     const stats = monthStats(habit.id, calYear, calMonth);
     const statsEl = document.getElementById("habit-stats");
+    const weekProg = habitWeekProgress(habit);
+    const weekPill = `<div class="stat-pill${weekProg.met ? " week-met" : ""}">Esta semana <strong>${weekProg.done}/${weekProg.goal}</strong></div>`;
     if (habit.type === "mal") {
       statsEl.innerHTML = `
         <div class="stat-pill">Caídas <strong>${stats.bad}</strong></div>
         <div class="stat-pill">Evitado <strong>${stats.miss}</strong></div>
         <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
         <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
+        ${weekPill}
       `;
     } else {
       statsEl.innerHTML = `
@@ -1220,6 +1307,7 @@
         <div class="stat-pill">Incumplidos <strong>${stats.miss}</strong></div>
         <div class="stat-pill">Racha actual <strong>${stats.streak}</strong></div>
         <div class="stat-pill">Mejor racha <strong>${stats.bestStreak}</strong></div>
+        ${weekPill}
       `;
     }
 
@@ -1358,8 +1446,22 @@
           ${weekdayPillsHtml("weekdays", weekdays)}
         </div>
         <div class="form-row">
+          <label for="f-habit-weekly-goal">Meta semanal</label>
+          <select id="f-habit-weekly-goal" name="weeklyGoal">
+            ${(() => {
+              const cur = habit && habit.weeklyGoal ? Number(habit.weeklyGoal) : 0;
+              let opts = `<option value=""${ !cur ? " selected" : ""}>Sin meta numérica</option>`;
+              for (let n = 1; n <= 7; n++) {
+                opts += `<option value="${n}"${cur === n ? " selected" : ""}>${n} día${n === 1 ? "" : "s"} por semana</option>`;
+              }
+              return opts;
+            })()}
+          </select>
+          <p class="field-hint">Ej. 3 días por semana: cuenta cuántos días cumpliste esta semana (lun–dom).</p>
+        </div>
+        <div class="form-row">
           <label for="f-habit-freq">Nota de frecuencia (opcional)</label>
-          <input id="f-habit-freq" name="frequency" maxlength="60" value="${habit ? escapeAttr(habit.frequency || "") : ""}" placeholder="Ej. Diario, 3× semana" />
+          <input id="f-habit-freq" name="frequency" maxlength="60" value="${habit ? escapeAttr(habit.frequency || "") : ""}" placeholder="Ej. Meta semanal, mañanas, etc." />
         </div>
       </div>
     `;
@@ -1405,7 +1507,8 @@
         frequency: (fd.get("frequency") || "").trim(),
         startDate,
         endDate,
-        weekdays
+        weekdays,
+        weeklyGoal: normalizeWeeklyGoal(fd.get("weeklyGoal"))
       };
       data.updatedAt = Date.now();
       if (habit) {
@@ -4567,6 +4670,11 @@
   function boot() {
     forceCloseAllModals();
     ensureState();
+    applyTheme(getTheme());
+    document.getElementById("btn-theme")?.addEventListener("click", toggleTheme);
+    document.getElementById("btn-theme-more")?.addEventListener("click", () => {
+      toggleTheme();
+    });
     initTabs();
     initModal();
     initMoreMenu();

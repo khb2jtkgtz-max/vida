@@ -13,7 +13,20 @@
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
-  <link rel="stylesheet" href="styles.css?v=11239" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('vida-theme');
+        if (t !== 'light' && t !== 'dark') t = 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.style.colorScheme = t;
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css?v=11240" />
 </head>
 <body>
   <div id="app">
@@ -22,6 +35,7 @@
         <h1>Vida</h1>
       </div>
       <div class="header-actions">
+        <button type="button" id="btn-theme" class="btn-ghost btn-sm" title="Cambiar fondo">☾ Oscuro</button>
         <button type="button" id="btn-sync" class="btn-primary btn-sync-main" title="Sincronizar">↻ Sync</button>
         <button type="button" id="btn-more" class="btn-ghost btn-sm" aria-haspopup="dialog" aria-controls="more-sheet" title="Más opciones">Más</button>
         <input type="file" id="backup-file-input" class="hidden" accept="application/json,.json" />
@@ -273,6 +287,7 @@
         <button type="button" class="btn-icon" data-more-close aria-label="Cerrar">×</button>
       </div>
       <div class="modal-body more-sheet-actions">
+        <button type="button" id="btn-theme-more" class="more-action">Fondo: Negro ↔ Blanco</button>
         <button type="button" id="btn-update-app" class="more-action">Actualizar app</button>
         <button type="button" id="btn-export-backup" class="more-action">Exportar respaldo</button>
         <button type="button" id="btn-import-backup" class="more-action">Importar respaldo</button>
@@ -350,6 +365,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11239"></script>
+  <script src="app.js?v=11240"></script>
 </body>
 </html>
