@@ -1,5 +1,5 @@
 /* Vida service worker — network-first shell; offline fallback */
-const CACHE = "vida-static-v78";
+const CACHE = "vida-static-v79";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,9 +7,9 @@ const ASSETS = [
   "./app.js",
   "./manifest.webmanifest",
   "./data/mm-import.json",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/apple-touch-icon.png"
+  "./icons/icon-192.png?v=11251",
+  "./icons/icon-512.png?v=11251",
+  "./icons/apple-touch-icon.png?v=11251"
 ];
 
 self.addEventListener("install", (event) => {
