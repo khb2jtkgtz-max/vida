@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.41";
+  const APP_VERSION = "1.12.42";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1252,12 +1252,18 @@
           <strong>${escapeHtml(h.name)}</strong>
           <span>${metaBits.join(" · ")}</span>
         </div>
+        <button type="button" class="btn-icon habit-edit-btn" title="Editar hábito" aria-label="Editar hábito">✎</button>
         <button type="button" class="${btnClass}" title="${scheduledToday ? "Marcar hoy" : "Hoy no aplica"}" aria-label="Marcar hoy" ${scheduledToday ? "" : "disabled"}>${btnLabel}</button>
       `;
       li.addEventListener("click", (e) => {
-        if (e.target.closest(".habit-today-btn")) return;
+        if (e.target.closest(".habit-today-btn") || e.target.closest(".habit-edit-btn")) return;
         selectedHabitId = h.id;
         renderHabitos();
+      });
+      li.querySelector(".habit-edit-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedHabitId = h.id;
+        openHabitModal(h);
       });
       li.querySelector(".habit-today-btn").addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1534,7 +1540,8 @@
     document.getElementById("btn-new-habit").addEventListener("click", () => openHabitModal(null));
     document.getElementById("btn-edit-habit").addEventListener("click", () => {
       const h = state.habits.find((x) => x.id === selectedHabitId);
-      if (h) openHabitModal(h);
+      if (!h) { toast("Selecciona un hábito primero"); return; }
+      openHabitModal(h);
     });
     document.getElementById("btn-delete-habit").addEventListener("click", async () => {
       const h = state.habits.find((x) => x.id === selectedHabitId);
@@ -2265,7 +2272,7 @@
           <button type="button" class="btn-ghost btn-sm" data-edit>Editar</button>
           <button type="button" class="btn-ghost btn-sm" data-mark ${paid >= months - 1 ? "" : ""}>Marcar mes</button>
         </div>`;
-      li.querySelector("[data-edit]").addEventListener("click", () => openTxModal(t));
+      li.querySelector("[data-edit]").addEventListener("click", () => openEditMovement(t));
       li.querySelector("[data-mark]").addEventListener("click", () => {
         t.msiPaidMonths = Math.min(months, paid + 1);
         t.updatedAt = Date.now();
@@ -2536,8 +2543,10 @@
             ? `<span class="tx-msi-badge">MSI ${msiPaid}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes</span>`
             : "";
           li.className = "tx-item" + (isMsi ? " has-msi" : "");
+          const isTransfer = !!(t._transferPair || t.category === "Transferencia");
+          const iconLabel = isTransfer ? "TR" : (isMsi ? "MSI" : (t.type === "ingreso" ? "IN" : "GA"));
           li.innerHTML = `
-            <div class="tx-icon ${t.type}${isMsi ? " msi" : ""}">${isMsi ? "MSI" : (t.type === "ingreso" ? "IN" : "GA")}</div>
+            <div class="tx-icon ${t.type}${isMsi ? " msi" : ""}${isTransfer ? " transfer" : ""}">${iconLabel}</div>
             <div class="tx-info">
               <strong>${escapeHtml(t.category)}</strong>
               ${msiBadge}
@@ -2545,19 +2554,38 @@
             </div>
             <div class="tx-amount ${t.type}">${sign}${formatMXN(t.amount)}</div>
             <div class="tx-actions">
-              <button type="button" class="btn-ghost btn-sm" data-edit>Editar</button>
-              <button type="button" class="btn-danger btn-sm" data-del>✕</button>
+              <button type="button" class="btn-icon" data-edit title="Editar" aria-label="Editar">✎</button>
+              <button type="button" class="btn-danger btn-sm" data-del title="Eliminar" aria-label="Eliminar">✕</button>
             </div>
           `;
-          li.querySelector("[data-edit]").addEventListener("click", () => openTxModal(t));
-          li.querySelector("[data-del]").addEventListener("click", async () => {
-            const okDel = await confirmAction("Eliminar movimiento", "¿Eliminar este movimiento?", "Eliminar");
+          li.classList.add("tx-item-editable");
+          li.addEventListener("click", (e) => {
+            if (e.target.closest("[data-del]") || e.target.closest("[data-edit]")) return;
+            openEditMovement(t);
+          });
+          li.querySelector("[data-edit]").addEventListener("click", (e) => {
+            e.stopPropagation();
+            openEditMovement(t);
+          });
+          li.querySelector("[data-del]").addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const pair = findTransferPair(t);
+            const msg = pair
+              ? "¿Eliminar esta transferencia (ambos lados)?"
+              : "¿Eliminar este movimiento?";
+            const okDel = await confirmAction("Eliminar movimiento", msg, "Eliminar");
             if (!okDel) return;
-            markDeleted("transactions", t.id);
-            state.transactions = state.transactions.filter((x) => x.id !== t.id);
+            if (pair) {
+              markDeleted("transactions", pair.from.id);
+              markDeleted("transactions", pair.to.id);
+              state.transactions = state.transactions.filter((x) => x._transferPair !== pair.pairId);
+            } else {
+              markDeleted("transactions", t.id);
+              state.transactions = state.transactions.filter((x) => x.id !== t.id);
+            }
             saveState();
             renderFinanzas();
-            toast("Movimiento eliminado");
+            toast(pair ? "Transferencia eliminada" : "Movimiento eliminado");
           });
           dayList.appendChild(li);
         });
@@ -2964,6 +2992,124 @@
     }, { submitLabel: "Transferir" });
   }
 
+
+  function findTransferPair(tx) {
+    if (!tx || !tx._transferPair) return null;
+    const legs = (state.transactions || []).filter((x) => x._transferPair === tx._transferPair);
+    if (legs.length < 2) return null;
+    const from = legs.find((x) => x._transferRole === "from") || legs.find((x) => x.type === "gasto") || legs[0];
+    const to = legs.find((x) => x._transferRole === "to") || legs.find((x) => x.type === "ingreso") || legs[1];
+    return { from, to, pairId: tx._transferPair };
+  }
+
+  function openTransferEditModal(tx) {
+    const pair = findTransferPair(tx);
+    if (!pair) {
+      openTxModal(tx);
+      return;
+    }
+    const accs = transferableAccounts();
+    if (accs.length < 2) {
+      toast("Necesitas al menos 2 cuentas para editar la transferencia");
+      return;
+    }
+    ensureTransferCategories();
+    const opts = (selectedId) => accs.map((a) => {
+      const bal = accountBalance(a.id);
+      return `<option value="${escapeAttr(a.id)}" ${a.id === selectedId ? "selected" : ""}>${escapeHtml((a.icon || "") + " " + a.name)} · ${formatMXN(bal)}</option>`;
+    }).join("");
+    const html = `
+      <div class="form-grid">
+        <p class="field-hint">Corrige la transferencia. Se actualizan ambos lados (salida y entrada).</p>
+        <div class="form-row">
+          <label for="f-tr-from">Desde</label>
+          <select id="f-tr-from" name="fromAccountId" required>${opts(pair.from.accountId)}</select>
+        </div>
+        <div class="form-row">
+          <label for="f-tr-to">Hacia</label>
+          <select id="f-tr-to" name="toAccountId" required>${opts(pair.to.accountId)}</select>
+        </div>
+        <div class="form-row">
+          <label for="f-tr-amount">Monto (MXN)</label>
+          <input id="f-tr-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" required value="${escapeAttr(String(pair.from.amount ?? ""))}" />
+        </div>
+        <div class="form-row">
+          <label for="f-tr-date">Fecha</label>
+          <input id="f-tr-date" name="date" type="date" required value="${escapeAttr(pair.from.date || today())}" />
+        </div>
+        <div class="form-row">
+          <label for="f-tr-note">Nota (opcional)</label>
+          <input id="f-tr-note" name="note" maxlength="120" value="${escapeAttr((pair.from.note || "").replace(/^A .+/, "").trim() || pair.from.note || "")}" />
+        </div>
+      </div>`;
+    openModal("Editar transferencia", html, (fd) => {
+      const amount = parseMoneyInput(fd.get("amount") ?? document.getElementById("f-tr-amount")?.value);
+      if (!(amount > 0)) {
+        toast("Monto inválido");
+        return false;
+      }
+      const fromId = fd.get("fromAccountId");
+      const toId = fd.get("toAccountId");
+      if (!fromId || !toId || fromId === toId) {
+        toast("Elige dos cuentas distintas");
+        return false;
+      }
+      if (!accountById(fromId) || !accountById(toId)) {
+        toast("Cuenta no válida");
+        return false;
+      }
+      if (isOwedAccountType(accountById(fromId)) || isOwedAccountType(accountById(toId))) {
+        toast("Para pagar una tarjeta usa el botón Pagar");
+        return false;
+      }
+      const date = fd.get("date") || today();
+      const note = (fd.get("note") || "").trim();
+      const fromName = accountById(fromId).name;
+      const toName = accountById(toId).name;
+      const nowTs = Date.now();
+      Object.assign(pair.from, {
+        type: "gasto",
+        amount,
+        category: "Transferencia",
+        date,
+        note: note || `A ${toName}`,
+        accountId: fromId,
+        paymentMethod: "Transferencia",
+        updatedAt: nowTs
+      });
+      Object.assign(pair.to, {
+        type: "ingreso",
+        amount,
+        category: "Transferencia",
+        date,
+        note: note || `Desde ${fromName}`,
+        accountId: toId,
+        paymentMethod: "Transferencia",
+        updatedAt: nowTs
+      });
+      saveState();
+      const ym = date.slice(0, 7);
+      const monthEl = document.getElementById("fin-month");
+      if (monthEl) monthEl.value = ym;
+      renderFinanzas();
+      toast(`Transferencia actualizada · ${formatMXN(amount)}`);
+      return true;
+    }, { submitLabel: "Guardar" });
+  }
+
+  function openEditMovement(tx) {
+    if (!tx) return;
+    if (tx._transferPair || tx.category === "Transferencia") {
+      openTransferEditModal(tx);
+      return;
+    }
+    if (tx._creditPayPair) {
+      toast("Los pagos de tarjeta se corrigen eliminando y registrando de nuevo con Pagar");
+      return;
+    }
+    openTxModal(tx);
+  }
+
   function openTxModal(tx, presetType) {
     if (!state.accounts.length) {
       toast("Crea una cuenta primero");
@@ -3075,12 +3221,21 @@
       const li = document.createElement("li");
       li.className = "project-item" + (p.id === selectedProjectId ? " selected" : "");
       li.innerHTML = `
-        <strong>${escapeHtml(p.name)}</strong>
-        <span class="badge ${p.status}">${p.status}</span>
+        <div class="project-item-main">
+          <strong>${escapeHtml(p.name)}</strong>
+          <span class="badge ${p.status}">${p.status}</span>
+        </div>
+        <button type="button" class="btn-icon project-edit-btn" title="Editar proyecto" aria-label="Editar proyecto">✎</button>
       `;
-      li.addEventListener("click", () => {
+      li.addEventListener("click", (e) => {
+        if (e.target.closest(".project-edit-btn")) return;
         selectedProjectId = p.id;
         renderProyectos();
+      });
+      li.querySelector(".project-edit-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedProjectId = p.id;
+        openProjectModal(p);
       });
       ul.appendChild(li);
     });
@@ -3527,7 +3682,8 @@
     document.getElementById("btn-new-project").addEventListener("click", () => openProjectModal(null));
     document.getElementById("btn-edit-project").addEventListener("click", () => {
       const p = state.projects.find((x) => x.id === selectedProjectId);
-      if (p) openProjectModal(p);
+      if (!p) { toast("Selecciona un proyecto primero"); return; }
+      openProjectModal(p);
     });
     document.getElementById("btn-delete-project").addEventListener("click", async () => {
       const p = state.projects.find((x) => x.id === selectedProjectId);
