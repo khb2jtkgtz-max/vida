@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.45";
+  const APP_VERSION = "1.12.46";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -485,6 +485,48 @@
     const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - mon0);
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
     return { start: isoDate(start), end: isoDate(end) };
+  }
+
+
+  /** Progress over the habit's period (start→end), not the week.
+   *  Meta % = días cumplidos / días programados en todo el periodo.
+   *  If no endDate, uses Dec 31 of the start year (or current year). */
+  function habitPeriodProgress(habit) {
+    if (!habit) return { done: 0, miss: 0, bad: 0, scheduled: 0, pct: 0, met: false, start: null, end: null };
+    const tStr = today();
+    let start = habit.startDate || null;
+    let end = habit.endDate || null;
+    if (!start && !end) {
+      // Indefinido: use current year Jan 1 → Dec 31
+      const y = new Date().getFullYear();
+      start = y + "-01-01";
+      end = y + "-12-31";
+    } else if (!start) {
+      start = tStr;
+    } else if (!end) {
+      const y = Number(String(start).slice(0, 4)) || new Date().getFullYear();
+      end = y + "-12-31";
+    }
+    let done = 0, miss = 0, bad = 0, scheduled = 0;
+    const cursor = parseISO(start);
+    const endD = parseISO(end);
+    let guard = 0;
+    while (cursor.getTime() <= endD.getTime() && guard++ < 800) {
+      const ds = isoDate(cursor);
+      if (isHabitScheduled(habit, ds)) {
+        scheduled++;
+        const mark = getMark(habit.id, ds);
+        if (mark === "done") done++;
+        else if (mark === "miss") miss++;
+        else if (mark === "bad") bad++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    const success = habit.type === "mal" ? miss : done;
+    const fail = habit.type === "mal" ? bad : miss;
+    const pct = scheduled > 0 ? Math.min(100, Math.round((success / scheduled) * 100)) : 0;
+    const met = scheduled > 0 && success >= scheduled;
+    return { done: success, miss: fail, bad, scheduled, pct, met, start, end, rawDone: done, rawMiss: miss };
   }
 
   /** Progress toward weekly goal (or weekday count) in current week. */
@@ -1296,19 +1338,13 @@
       " · " + formatPeriodLabel(habit.startDate, habit.endDate) +
       (habit.frequency ? " · " + habit.frequency : "");
 
-    const stats = monthStats(habit.id, calYear, calMonth);
     const statsEl = document.getElementById("habit-stats");
-    const weekProg = habitWeekProgress(habit);
-    const metaPct = weekProg.goal > 0
-      ? Math.min(999, Math.round((weekProg.done / weekProg.goal) * 100))
-      : 0;
-    // Del mes visible: hechos / fallados (mal hábito: evitado = hecho, caída = fallado)
-    const hechos = habit.type === "mal" ? stats.miss : stats.done;
-    const fallados = habit.type === "mal" ? stats.bad : stats.miss;
+    const period = habitPeriodProgress(habit);
+    // % = cumplidos / días programados del periodo (inicio → fin o 31 dic)
     statsEl.innerHTML = `
-      <div class="stat-pill${weekProg.met ? " week-met" : ""}">Meta <strong>${metaPct}%</strong></div>
-      <div class="stat-pill">Hechos <strong>${hechos}</strong></div>
-      <div class="stat-pill">Fallados <strong>${fallados}</strong></div>
+      <div class="stat-pill${period.met ? " week-met" : ""}" title="${escapeAttr((period.start || "") + " → " + (period.end || "") + " · " + period.done + "/" + period.scheduled)}">Meta <strong>${period.pct}%</strong></div>
+      <div class="stat-pill">Hechos <strong>${period.done}</strong></div>
+      <div class="stat-pill">Fallados <strong>${period.miss}</strong></div>
     `;
 
     document.getElementById("cal-month-label").textContent =
