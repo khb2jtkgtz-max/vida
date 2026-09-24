@@ -2619,3 +2619,32 @@ html[data-theme="light"] .tx-actions .btn-icon {
 
 /* Color pickers removed — UI is grayscale only */
 .color-swatches { display: none !important; }
+
+
+.tx-type-filter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin: 0.55rem 0 0.45rem;
+}
+.tx-type-pill {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.45rem 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.tx-type-pill.is-active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+html[data-theme="light"] .tx-type-pill.is-active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}

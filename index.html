@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Vida" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11254" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11254" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11254" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11255" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11255" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11255" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
   <script>
@@ -26,13 +26,13 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=11254" />
+  <link rel="stylesheet" href="styles.css?v=11255" />
 </head>
 <body>
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <img class="brand-mark" src="icons/icon-192.png?v=11254" width="36" height="36" alt="" />
+        <img class="brand-mark" src="icons/icon-192.png?v=11255" width="36" height="36" alt="" />
         <h1>Vida</h1>
       </div>
       <div class="header-actions">
@@ -188,10 +188,10 @@
                 <select id="fin-filter-account" aria-label="Filtrar por cuenta">
                   <option value="all">Todas las cuentas</option>
                 </select>
-                <select id="fin-filter-type" aria-label="Filtrar por tipo">
+                <select id="fin-filter-type" class="sr-only" aria-label="Filtrar por tipo" tabindex="-1">
                   <option value="all">Todos</option>
                   <option value="ingreso">Ingresos</option>
-                  <option value="gasto">Gastos</option>
+                  <option value="gasto">Egresos</option>
                 </select>
               </div>
             </div>
@@ -199,6 +199,11 @@
               <button type="button" id="btn-new-ingreso" class="btn-tx-ingreso">+ Ingreso</button>
               <button type="button" id="btn-new-gasto" class="btn-tx-gasto">+ Gasto</button>
               <button type="button" id="btn-new-transfer" class="btn-tx-transfer">↔ Transferencia</button>
+            </div>
+            <div class="tx-type-filter" role="group" aria-label="Filtrar ingresos o egresos">
+              <button type="button" class="tx-type-pill is-active" data-tx-type="all">Todos</button>
+              <button type="button" class="tx-type-pill" data-tx-type="ingreso">Ingresos</button>
+              <button type="button" class="tx-type-pill" data-tx-type="gasto">Egresos</button>
             </div>
             <div id="tx-account-filter-banner" class="tx-account-filter-banner hidden" role="status"></div>
             <ul id="tx-list" class="tx-list"></ul>
@@ -371,6 +376,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11254"></script>
+  <script src="app.js?v=11255"></script>
 </body>
 </html>

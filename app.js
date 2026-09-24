@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.54";
+  const APP_VERSION = "1.12.55";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2515,6 +2515,9 @@
       if (list && !list.classList.contains("hidden")) renderDebtBreakdown();
     }
 
+    document.querySelectorAll("[data-tx-type]").forEach((b) => {
+      b.classList.toggle("is-active", (b.getAttribute("data-tx-type") || "all") === typeFilter);
+    });
     let listTxs = txs;
     if (typeFilter !== "all") listTxs = listTxs.filter((t) => t.type === typeFilter);
     listTxs = [...listTxs].sort((a, b) => {
@@ -3250,6 +3253,17 @@
     monthInput.value = ym;
     monthInput.addEventListener("change", renderFinanzas);
     document.getElementById("fin-filter-type").addEventListener("change", renderFinanzas);
+    document.querySelectorAll("[data-tx-type]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const type = btn.getAttribute("data-tx-type") || "all";
+        const sel = document.getElementById("fin-filter-type");
+        if (sel) sel.value = type;
+        document.querySelectorAll("[data-tx-type]").forEach((b) => {
+          b.classList.toggle("is-active", b.getAttribute("data-tx-type") === type);
+        });
+        renderFinanzas();
+      });
+    });
     const accFilt = document.getElementById("fin-filter-account");
     if (accFilt) accFilt.addEventListener("change", renderFinanzas);
     document.getElementById("btn-new-tx").addEventListener("click", () => openTxModal(null));
