@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.55";
+  const APP_VERSION = "1.12.56";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -173,10 +173,17 @@
     return null;
   }
 
+  function touchEntity(obj) {
+    if (!obj || typeof obj !== "object") return obj;
+    obj.updatedAt = Date.now();
+    return obj;
+  }
+
   function saveState() {
     if (!state) return;
     if (!applyRemoteLock) {
       state.updatedAt = Date.now();
+      state.pendingSync = true;
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     if (!applyRemoteLock && syncId) {
@@ -1975,6 +1982,7 @@
       const pairId = uid();
       const noteGasto = note ? `Pago ${acc.name}: ${note}` : `Pago ${acc.name}`;
       const noteIngreso = note ? `Abono: ${note}` : `Abono desde ${accountById(fromId).name}`;
+      const _payNow = Date.now();
       state.transactions.push({
         id: uid(),
         type: "gasto",
@@ -1985,7 +1993,8 @@
         accountId: fromId,
         paymentMethod: "Transferencia",
         _creditPayPair: pairId,
-        _creditPayRole: "from"
+        _creditPayRole: "from",
+        updatedAt: _payNow
       });
       state.transactions.push({
         id: uid(),
@@ -1997,7 +2006,8 @@
         accountId: acc.id,
         paymentMethod: "Transferencia",
         _creditPayPair: pairId,
-        _creditPayRole: "to"
+        _creditPayRole: "to",
+        updatedAt: _payNow
       });
       // Baja la cantidad a pagar indicada (no fuerza liquidar toda la deuda)
       if (acc.amountDue != null) {
@@ -2735,7 +2745,7 @@
       state.loans.push(loan);
       if (accountId && accountById(accountId)) {
         ensureFinanceCategory("gasto", "Préstamos");
-        state.transactions.push({ id: uid(), type: "gasto", amount, category: "Préstamos", date, note: `Préstamo a ${person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id });
+        state.transactions.push({ id: uid(), type: "gasto", amount, category: "Préstamos", date, note: `Préstamo a ${person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id, updatedAt: Date.now() });
       }
       saveState(); renderFinanzas(); toast("Préstamo registrado"); return true;
     });
@@ -2765,7 +2775,7 @@
       loan.payments.push(payment);
       if (accountId && accountById(accountId)) {
         ensureFinanceCategory("ingreso", "Abono");
-        state.transactions.push({ id: uid(), type: "ingreso", amount, category: "Abono", date, note: `Abono de ${loan.person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id, _loanPaymentId: payment.id });
+        state.transactions.push({ id: uid(), type: "ingreso", amount, category: "Abono", date, note: `Abono de ${loan.person}`, accountId, paymentMethod: "Transferencia", _loanId: loan.id, _loanPaymentId: payment.id, updatedAt: Date.now() });
       }
       saveState(); renderFinanzas();
       toast(loanOutstanding(loan) <= 0 ? "Abono registrado · saldado" : "Abono registrado");
@@ -3015,11 +3025,13 @@
       const fromName = accountById(fromId).name;
       const toName = accountById(toId).name;
       const pairId = uid();
+      const _trNow = Date.now();
       state.transactions.push({
         id: uid(),
         type: "gasto",
         amount,
         category: "Transferencia",
+        updatedAt: _trNow,
         date,
         note: note || `A ${toName}`,
         accountId: fromId,
@@ -3037,7 +3049,8 @@
         accountId: toId,
         paymentMethod: "Transferencia",
         _transferPair: pairId,
-        _transferRole: "to"
+        _transferRole: "to",
+        updatedAt: _trNow
       });
       saveState();
       const ym = date.slice(0, 7);
@@ -3872,11 +3885,12 @@
     if (!remote || !remote.state) return false;
     const remoteAt = Number(remote.updatedAt || remote.state.updatedAt || 0);
     const localAt = Number(state.updatedAt || 0);
-    if (remoteAt <= localAt) return false;
+    if (remoteAt <= localAt && !state.pendingSync) return false;
     applyRemoteLock = true;
     try {
-      state = remote.state;
-      if (typeof state.updatedAt !== "number") state.updatedAt = remoteAt;
+      // Nunca sustituir a ciegas: unir para no perder edits offline
+      state = mergeStates(state, remote.state);
+      if (typeof state.updatedAt !== "number") state.updatedAt = Math.max(localAt, remoteAt);
       ensureState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       selectedHabitId = state.habits[0]?.id || null;
@@ -4008,10 +4022,13 @@
     return out;
   }
 
-  function mergeById(listA, listB, tombstones) {
+  function mergeById(listA, listB, tombstones, opts) {
     const map = new Map();
     const dead = tombstones || {};
-    function put(item) {
+    // localNewer: este dispositivo tiene state.updatedAt >= remoto (p.ej. edits offline).
+    // Si un ítem local no trae updatedAt, no dejar que uno remoto viejo con stamp lo pise.
+    const localNewer = !!(opts && opts.localNewer);
+    function put(item, isRemote) {
       if (!item || !item.id || dead[item.id]) return;
       const prev = map.get(item.id);
       if (!prev) {
@@ -4020,13 +4037,24 @@
       }
       const ta = Number(prev.updatedAt || 0);
       const tb = Number(item.updatedAt || 0);
-      // Newer updatedAt wins field conflicts; missing timestamps keep a stable merge.
-      if (tb > ta) map.set(item.id, { ...prev, ...item });
-      else if (ta > tb) map.set(item.id, { ...item, ...prev });
-      else map.set(item.id, { ...item, ...prev }); // tie: prefer first-seen (local if local listed first)
+      if (tb > ta) {
+        if (localNewer && !isRemote) {
+          map.set(item.id, { ...prev, ...item });
+        } else if (localNewer && isRemote && ta === 0) {
+          // Local sin stamp + nube con stamp, pero el reloj local es más nuevo → conservar local
+          map.set(item.id, { ...item, ...prev });
+        } else {
+          map.set(item.id, { ...prev, ...item });
+        }
+      } else if (ta > tb) {
+        map.set(item.id, { ...item, ...prev });
+      } else {
+        // Empate: conservar el primero (local)
+        map.set(item.id, { ...item, ...prev });
+      }
     }
-    (listA || []).forEach(put);
-    (listB || []).forEach(put);
+    (listA || []).forEach((item) => put(item, false));
+    (listB || []).forEach((item) => put(item, true));
     return Array.from(map.values()).filter((item) => !dead[item.id]);
   }
 
@@ -4035,24 +4063,28 @@
     const L = local || {};
     const R = remote || {};
     const deleted = mergeDeletedMaps(L.deleted, R.deleted);
+    const localAt = Number(L.updatedAt || 0);
+    const remoteAt = Number(R.updatedAt || 0);
+    const localNewer = localAt >= remoteAt;
+    const mOpts = { localNewer };
     const merged = {
       seeded: !!(L.seeded || R.seeded),
       deleted,
-      habits: mergeById(L.habits, R.habits, deleted.habits),
+      habits: mergeById(L.habits, R.habits, deleted.habits, mOpts),
       habitMarks: mergeHabitMarks(L.habitMarks, R.habitMarks, deleted.habitMarks),
       categories: {
         ingreso: Array.from(new Set([...(L.categories && L.categories.ingreso || []), ...(R.categories && R.categories.ingreso || [])])),
         gasto: Array.from(new Set([...(L.categories && L.categories.gasto || []), ...(R.categories && R.categories.gasto || [])]))
       },
-      accounts: mergeById(L.accounts, R.accounts, deleted.accounts),
-      transactions: mergeById(L.transactions, R.transactions, deleted.transactions),
-      projects: mergeById(L.projects, R.projects, deleted.projects).map((p) => {
+      accounts: mergeById(L.accounts, R.accounts, deleted.accounts, mOpts),
+      transactions: mergeById(L.transactions, R.transactions, deleted.transactions, mOpts),
+      projects: mergeById(L.projects, R.projects, deleted.projects, mOpts).map((p) => {
         const left = (L.projects || []).find((x) => x.id === p.id) || {};
         const right = (R.projects || []).find((x) => x.id === p.id) || {};
         const base = { ...p };
         const leftTasks = left.tasks || [];
         const rightTasks = right.tasks || [];
-        base.tasks = mergeById(leftTasks, rightTasks, deleted.tasks).map((task) => {
+        base.tasks = mergeById(leftTasks, rightTasks, deleted.tasks, mOpts).map((task) => {
           const lt = leftTasks.find((x) => x.id === task.id) || {};
           const rt = rightTasks.find((x) => x.id === task.id) || {};
           return {
@@ -4063,12 +4095,12 @@
         base.missedDays = mergeMissedDays(left.missedDays, right.missedDays, p.id, deleted.missedDays);
         return base;
       }),
-      loans: mergeById(L.loans, R.loans, deleted.loans).map((loan) => {
+      loans: mergeById(L.loans, R.loans, deleted.loans, mOpts).map((loan) => {
         const left = (L.loans || []).find((x) => x.id === loan.id) || {};
         const right = (R.loans || []).find((x) => x.id === loan.id) || {};
-        return { ...left, ...right, ...loan, payments: mergeById(left.payments, right.payments) };
+        return { ...left, ...right, ...loan, payments: mergeById(left.payments || [], right.payments || [], null, mOpts) };
       }),
-      updatedAt: Math.max(Number(L.updatedAt || 0), Number(R.updatedAt || 0), Date.now())
+      updatedAt: Math.max(localAt, remoteAt, Date.now())
     };
     // Drop marks for deleted habits
     Object.keys(merged.habitMarks || {}).forEach((k) => {
@@ -4172,6 +4204,8 @@
         saveState();
       }
       await pushRemote(exportStateBlob());
+      state.pendingSync = false;
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
       setSyncStatus("synced");
       if (!quiet) toast("Datos sincronizados. Guarda tu código por si reinstalas.");
     } catch (e) {
