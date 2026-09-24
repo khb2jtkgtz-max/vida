@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.49";
+  const APP_VERSION = "1.12.50";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -3217,8 +3217,14 @@
         msiMonthly,
         msiPaidMonths: tx && Number(tx.msiPaidMonths) > 0 ? Number(tx.msiPaidMonths) : 0
       };
+      data.updatedAt = Date.now();
       if (tx) {
-        Object.assign(tx, data);
+        const idx = (state.transactions || []).findIndex((t) => t.id === tx.id);
+        if (idx >= 0) {
+          state.transactions[idx] = { ...state.transactions[idx], ...data };
+        } else {
+          Object.assign(tx, data);
+        }
         toast(data.msiMonths
           ? `Actualizado · MSI ${data.msiMonths} × ${formatMXN(data.msiMonthly)}`
           : "Movimiento actualizado");
