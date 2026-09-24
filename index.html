@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
-  <link rel="stylesheet" href="styles.css?v=11236" />
+  <link rel="stylesheet" href="styles.css?v=11237" />
 </head>
 <body>
   <div id="app">
@@ -112,9 +112,9 @@
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
         <div class="fin-dashboard fin-dashboard-mm fin-summary-strip">
           <div class="stat-card card assets">
-            <span class="stat-label">Lo que tienes</span>
+            <span class="stat-label">Disponible</span>
             <strong id="fin-assets" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-assets-hint">Cuentas + te deben</span>
+            <span class="stat-hint" id="fin-assets-hint">A la mano · solo cuentas</span>
           </div>
           <div class="stat-card card debt-owe">
             <span class="stat-label">Lo que debes</span>
@@ -124,7 +124,7 @@
           <div class="stat-card card balance fin-total-general">
             <span class="stat-label" id="fin-balance-label">Me queda</span>
             <strong id="fin-balance" class="stat-value">$0.00</strong>
-            <span class="stat-hint">Tienes − debes</span>
+            <span class="stat-hint" id="fin-balance-hint">Disponible − debes</span>
           </div>
         </div>
         <p class="fin-month-flow muted" id="fin-month-flow">
@@ -345,6 +345,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11236"></script>
+  <script src="app.js?v=11237"></script>
 </body>
 </html>

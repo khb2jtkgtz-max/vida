@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.36";
+  const APP_VERSION = "1.12.37";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -574,9 +574,9 @@
    * (tarjetas y préstamos). Los abonos bajan deuda; los cobros bajan
    * "te deben" y suben la cuenta destino.
    */
-  /** Me queda = (cuentas + te deben) − tarjetas − préstamos que debo. */
+  /** Me queda = disponible (solo cuentas, sin te deben) − tarjetas − préstamos que debo. */
   function netWorth() {
-    return totalAvailableMoney() + totalLoanOutstanding() - totalCreditDebt();
+    return totalAvailableMoney() - totalCreditDebt();
   }
 
   function accountById(id) {
@@ -1538,10 +1538,11 @@
     const assetsOnly = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    const tienes = assetsOnly + owedToMe;
-    const meQueda = tienes - debt;
+    const meQueda = assetsOnly - debt;
     if (totalEl) {
-      totalEl.textContent = `Tienes ${formatMXN(tienes)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
+      totalEl.textContent = owedToMe > 0
+        ? `Disponible ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Te deben ${formatMXN(owedToMe)}`
+        : `Disponible ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
     }
     chips.innerHTML = "";
     if (!state.accounts.length) {
@@ -2233,16 +2234,15 @@
     const assets = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    // Lo que tienes = cuentas + te deben; Me queda = tienes − debes
-    const tienes = assets + owedToMe;
-    const meQueda = tienes - debtTotal;
+    // Disponible = solo cuentas (a la mano). Me queda = disponible − debes. Te deben va aparte abajo.
+    const meQueda = assets - debtTotal;
     const assetsEl = document.getElementById("fin-assets");
-    if (assetsEl) assetsEl.textContent = formatMXN(tienes);
+    if (assetsEl) assetsEl.textContent = formatMXN(assets);
     const assetsHint = document.getElementById("fin-assets-hint");
     if (assetsHint) {
       assetsHint.textContent = owedToMe > 0
-        ? `Cuentas ${formatMXN(assets)} + te deben ${formatMXN(owedToMe)}`
-        : `Cuentas ${formatMXN(assets)}`;
+        ? `A la mano · te deben aparte ${formatMXN(owedToMe)}`
+        : "A la mano · solo cuentas";
     }
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
@@ -2251,6 +2251,8 @@
       balEl.textContent = formatMXN(meQueda);
       balEl.classList.toggle("neg-net", meQueda < 0);
     }
+    const balHint = document.getElementById("fin-balance-hint");
+    if (balHint) balHint.textContent = "Disponible − debes";
     const ingEl = document.getElementById("fin-ingresos");
     if (ingEl) ingEl.textContent = formatMXN(ingresos);
     const gasEl = document.getElementById("fin-gastos");
