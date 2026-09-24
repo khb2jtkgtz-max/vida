@@ -750,14 +750,14 @@ a { color: var(--primary); }
   flex: none;
   max-width: none;
   width: 100%;
-  border-left: 3px solid var(--acc-color, var(--primary));
+  border-left: 3px solid rgba(255, 255, 255, 0.35);
   transition: background 0.12s;
 }
 .account-chip:last-child { border-bottom: none; }
 .account-chip:hover {
   background: var(--bg-hover);
   border-color: var(--separator);
-  border-left-color: var(--acc-color, var(--primary));
+  border-left-color: #fff;
 }
 .account-chip-icon {
   font-size: 1.25rem;
@@ -2000,11 +2000,11 @@ a { color: var(--primary); }
 .loans-subtitle { display: none !important; }
 
 .account-chip.selected {
-  background: color-mix(in srgb, var(--acc-color, var(--primary)) 12%, transparent);
+  background: rgba(255, 255, 255, 0.06);
   border-left-width: 4px;
 }
 .account-chip.selected:hover {
-  background: color-mix(in srgb, var(--acc-color, var(--primary)) 16%, transparent);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .tx-account-filter-banner {

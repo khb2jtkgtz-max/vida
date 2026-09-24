@@ -1,5 +1,5 @@
 /* Vida service worker — network-first shell; offline fallback */
-const CACHE = "vida-static-v62";
+const CACHE = "vida-static-v63";
 const ASSETS = [
   "./",
   "./index.html",
@@ -50,6 +50,7 @@ self.addEventListener("fetch", (event) => {
   const networkFirst = (
     url.pathname.endsWith("version.json") ||
     url.pathname.endsWith("/app.js") ||
+    url.pathname.endsWith("/styles.css") ||
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/sw.js") ||
     url.pathname.endsWith("/") ||

@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.34";
+  const APP_VERSION = "1.12.35";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -45,27 +45,27 @@
   /** Presets MX para chips al crear/editar cuenta (llenan nombre + tipo + color). */
   const INSTITUTION_PRESETS = [
     { group: "Efectivo", name: "Efectivo", type: "efectivo", color: "#3ecf8e", icon: "💵" },
-    { group: "Bancos", name: "Santander", type: "debito", color: "#ec0000", icon: "🏦" },
+    { group: "Bancos", name: "Santander", type: "debito", color: "#f5f5f5", icon: "🏦" },
     { group: "Bancos", name: "BBVA", type: "debito", color: "#004481", icon: "🏦" },
-    { group: "Bancos", name: "Banorte", type: "debito", color: "#eb0029", icon: "🏦" },
+    { group: "Bancos", name: "Banorte", type: "debito", color: "#a3a3a3", icon: "🏦" },
     { group: "Bancos", name: "HSBC", type: "debito", color: "#db0011", icon: "🏦" },
     { group: "Bancos", name: "Scotiabank", type: "debito", color: "#ec111a", icon: "🏦" },
     { group: "Bancos", name: "Citibanamex", type: "debito", color: "#056dae", icon: "🏦" },
-    { group: "Bancos", name: "Nu", type: "debito", color: "#820ad1", icon: "💜" },
-    { group: "Bancos", name: "Hey Banco", type: "debito", color: "#00c2a8", icon: "🏦" },
-    { group: "Tarjetas", name: "Amex", type: "credito", color: "#006fcf", icon: "💳" },
-    { group: "Tarjetas", name: "Like U", type: "credito", color: "#7c3aed", icon: "💳" },
-    { group: "Tarjetas", name: "Hey Banco", type: "credito", color: "#00c2a8", icon: "💳" },
-    { group: "Tarjetas", name: "Santander Free", type: "credito", color: "#ec0000", icon: "💳" },
-    { group: "Tarjetas", name: "BBVA Aqua", type: "credito", color: "#00a3e0", icon: "💳" },
-    { group: "Tarjetas", name: "Nu tarjeta", type: "credito", color: "#820ad1", icon: "💳" },
-    { group: "Tarjetas", name: "Banorte Clásica", type: "credito", color: "#eb0029", icon: "💳" },
+    { group: "Bancos", name: "Nu", type: "debito", color: "#a3a3a3", icon: "💜" },
+    { group: "Bancos", name: "Hey Banco", type: "debito", color: "#d4d4d4", icon: "🏦" },
+    { group: "Tarjetas", name: "Amex", type: "credito", color: "#e5e5e5", icon: "💳" },
+    { group: "Tarjetas", name: "Like U", type: "credito", color: "#737373", icon: "💳" },
+    { group: "Tarjetas", name: "Hey Banco", type: "credito", color: "#d4d4d4", icon: "💳" },
+    { group: "Tarjetas", name: "Santander Free", type: "credito", color: "#f5f5f5", icon: "💳" },
+    { group: "Tarjetas", name: "BBVA Aqua", type: "credito", color: "#d4d4d4", icon: "💳" },
+    { group: "Tarjetas", name: "Nu tarjeta", type: "credito", color: "#a3a3a3", icon: "💳" },
+    { group: "Tarjetas", name: "Banorte Clásica", type: "credito", color: "#a3a3a3", icon: "💳" },
     { group: "Préstamos que debo", name: "Préstamo en efectivo", type: "deuda", color: "#f59e0b", icon: "🤝" },
     { group: "Préstamos que debo", name: "Préstamo bancario", type: "deuda", color: "#ea580c", icon: "🏦" },
-    { group: "Préstamos que debo", name: "Santander préstamo", type: "deuda", color: "#ec0000", icon: "🏦" },
+    { group: "Préstamos que debo", name: "Santander préstamo", type: "deuda", color: "#f5f5f5", icon: "🏦" },
     { group: "Préstamos que debo", name: "BBVA préstamo", type: "deuda", color: "#004481", icon: "🏦" },
-    { group: "Préstamos que debo", name: "Hey préstamo", type: "deuda", color: "#00c2a8", icon: "🏦" },
-    { group: "Préstamos que debo", name: "Nu préstamo", type: "deuda", color: "#820ad1", icon: "💜" }
+    { group: "Préstamos que debo", name: "Hey préstamo", type: "deuda", color: "#d4d4d4", icon: "🏦" },
+    { group: "Préstamos que debo", name: "Nu préstamo", type: "deuda", color: "#a3a3a3", icon: "💜" }
   ];
 
   const MONTHS_ES = [
@@ -193,8 +193,8 @@
       },
       accounts: [
         { id: aEfectivo, name: "Efectivo", type: "efectivo", color: "#3ecf8e", icon: "💵", openingBalance: 500, institution: null, _seed: true },
-        { id: aSantander, name: "Santander", type: "debito", color: "#ec0000", icon: "🏦", openingBalance: 12000, institution: "Santander", _seed: true },
-        { id: aAmex, name: "Amex", type: "credito", color: "#006fcf", icon: "💳", openingBalance: 0, institution: "Amex", creditLimit: 25000, cutoffDay: seedCutoffDay, paymentDueDay: seedPayDay, _seed: true }
+        { id: aSantander, name: "Santander", type: "debito", color: "#f5f5f5", icon: "🏦", openingBalance: 12000, institution: "Santander", _seed: true },
+        { id: aAmex, name: "Amex", type: "credito", color: "#e5e5e5", icon: "💳", openingBalance: 0, institution: "Amex", creditLimit: 25000, cutoffDay: seedCutoffDay, paymentDueDay: seedPayDay, _seed: true }
       ],
       transactions: [
         { id: uid(), type: "ingreso", amount: 25000, category: "Salario", date: isoDate(new Date(y, m, 1)), note: "Nómina quincenal (ejemplo)", accountId: aSantander, paymentMethod: "Transferencia", _seed: true },
@@ -278,6 +278,52 @@
       state.accounts.push(acc);
     }
     return acc;
+  }
+
+
+  function toGrayscaleHex(hex) {
+    if (!hex || typeof hex !== "string") return "#a3a3a3";
+    let h = hex.trim();
+    if (h[0] === "#") h = h.slice(1);
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return "#a3a3a3";
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    // Perceived luminance — if already near gray keep; else map to gray ladder
+    const lum = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    const ladder = [245, 212, 163, 115, 82, 64, 38, 255];
+    let best = ladder[0];
+    let bestD = 999;
+    ladder.forEach((v) => {
+      const d = Math.abs(v - lum);
+      if (d < bestD) { bestD = d; best = v; }
+    });
+    const hx = best.toString(16).padStart(2, "0");
+    return "#" + hx + hx + hx;
+  }
+
+  function migrateColorsToMono() {
+    let changed = false;
+    (state.accounts || []).forEach((a) => {
+      if (!a.color) return;
+      const mono = toGrayscaleHex(a.color);
+      if (mono.toLowerCase() !== String(a.color).toLowerCase()) {
+        a.color = mono;
+        changed = true;
+      }
+    });
+    (state.habits || []).forEach((h) => {
+      if (!h.color) return;
+      const mono = toGrayscaleHex(h.color);
+      if (mono.toLowerCase() !== String(h.color).toLowerCase()) {
+        h.color = mono;
+        changed = true;
+      }
+    });
+    if (changed && !applyRemoteLock) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+    }
   }
 
   function migrateAccounts() {
@@ -1560,7 +1606,7 @@
         const isSelected = !!(filtSel && filtSel.value === a.id);
         const card = document.createElement("div");
         card.className = "account-chip" + (isOwed ? " credit" : "") + (isSelected ? " selected" : "");
-        card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
+        card.style.setProperty("--acc-color", "#ffffff");
         card.dataset.accountId = a.id;
 
         let amountsHtml = "";
