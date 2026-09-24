@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.48";
+  const APP_VERSION = "1.12.49";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2266,7 +2266,7 @@
     return (state.transactions || []).filter((t) => {
       if (t.type !== "gasto") return false;
       const months = Number(t.msiMonths) || 0;
-      if (months < 2) return false;
+      if (months < 1) return false;
       const paid = Number(t.msiPaidMonths) || 0;
       return paid < months;
     }).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
@@ -2582,7 +2582,7 @@
           const acc = accountById(t.accountId);
           const accLabel = acc ? `${acc.icon || ""} ${acc.name}` : "Sin cuenta";
           const pm = t.paymentMethod ? ` · ${t.paymentMethod}` : "";
-          const isMsi = t.type === "gasto" && Number(t.msiMonths) > 1;
+          const isMsi = t.type === "gasto" && Number(t.msiMonths) >= 1;
           const msiPaid = Number(t.msiPaidMonths) || 0;
           const msiBadge = isMsi
             ? `<span class="tx-msi-badge">MSI ${msiPaid}/${t.msiMonths} · ${formatMXN(t.msiMonthly)}/mes</span>`
@@ -2777,7 +2777,7 @@
     ).join("") + `<option value="__custom__">+ Nueva categoría…</option>`;
   }
 
-  const MSI_MONTH_OPTIONS = [3, 6, 9, 12, 18, 24];
+  const MSI_MONTH_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1);
 
   function txFormHtml(tx, presetType) {
     const type = tx ? tx.type : (presetType === "ingreso" || presetType === "gasto" ? presetType : "gasto");
@@ -2786,10 +2786,10 @@
     const pm = tx ? (tx.paymentMethod || "Efectivo") : "Efectivo";
     const acc = accountById(accId);
     const showMsi = type === "gasto";
-    const msiOn = tx && Number(tx.msiMonths) > 1;
+    const msiOn = tx && Number(tx.msiMonths) >= 1;
     const msiMonths = msiOn ? Number(tx.msiMonths) : 6;
     const msiOpts = MSI_MONTH_OPTIONS.map((n) =>
-      `<option value="${n}" ${n === msiMonths ? "selected" : ""}>${n} meses</option>`
+      `<option value="${n}" ${n === msiMonths ? "selected" : ""}>${n} ${n === 1 ? "mes" : "meses"}</option>`
     ).join("");
     return `
       <div class="form-grid">
@@ -2879,7 +2879,7 @@
       if (!msiMonthly) return;
       const amt = parseMoneyInput(amountInp?.value);
       const months = parseInt(msiMonths?.value, 10) || 0;
-      if (!(amt > 0) || months < 2) {
+      if (!(amt > 0) || months < 1) {
         msiMonthly.textContent = formatMXN(0);
         return;
       }
@@ -3200,7 +3200,7 @@
         || document.getElementById("f-tx-msi")?.checked;
       if (type === "gasto" && accObj && accObj.type === "credito" && msiChecked) {
         const months = parseInt(fd.get("msiMonths") ?? document.getElementById("f-tx-msi-months")?.value, 10);
-        if (months >= 2) {
+        if (months >= 1) {
           msiMonths = months;
           msiMonthly = Math.round((amount / months) * 100) / 100;
         }
