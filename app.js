@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.38";
+  const APP_VERSION = "1.12.39";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -2204,6 +2204,95 @@
     });
   }
 
+
+  function liquidAccountsSorted() {
+    return (state.accounts || [])
+      .filter((a) => !isOwedAccountType(a))
+      .map((a) => ({ acc: a, bal: accountBalance(a.id) }))
+      .sort((a, b) => b.bal - a.bal);
+  }
+
+  function summaryRowHtml(icon, name, meta, amount, amountClass) {
+    return `<li class="summary-detail-row">
+      <span class="summary-detail-icon" aria-hidden="true">${escapeHtml(icon || "")}</span>
+      <span class="summary-detail-info">
+        <strong>${escapeHtml(name)}</strong>
+        ${meta ? `<span class="muted">${escapeHtml(meta)}</span>` : ""}
+      </span>
+      <strong class="summary-detail-amt ${amountClass || ""}">${formatMXN(amount)}</strong>
+    </li>`;
+  }
+
+  function openSummaryDetail(kind) {
+    const liquid = liquidAccountsSorted();
+    const debts = owedAccountsSorted();
+    const loans = [...(state.loans || [])]
+      .map((loan) => ({ loan, out: loanOutstanding(loan) }))
+      .filter((x) => x.out > 0)
+      .sort((a, b) => b.out - a.out);
+    const assets = totalAvailableMoney();
+    const owedToMe = totalLoanOutstanding();
+    const debtTotal = totalCreditDebt();
+    const patrimonio = assets + owedToMe;
+    const sinDeuda = patrimonio - debtTotal;
+
+    let title = "";
+    let body = "";
+
+    if (kind === "disponible") {
+      title = "Disponible a la mano";
+      const rows = liquid.length
+        ? liquid.map(({ acc, bal }) => {
+            const meta = accountTypeMeta(acc.type);
+            return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, bal < 0 ? "neg" : "");
+          }).join("")
+        : `<li class="empty-hint">No hay cuentas de efectivo/banco.</li>`;
+      body = `<p class="muted summary-detail-lead">Solo lo que está en tus cuentas (sin lo que te deben).</p>
+        <ul class="summary-detail-list">${rows}</ul>
+        <p class="summary-detail-total">Total <strong>${formatMXN(assets)}</strong></p>`;
+    } else if (kind === "debes") {
+      title = "Lo que debes";
+      const rows = debts.length
+        ? debts.map(({ acc, debt, due }) => {
+            const meta = accountTypeMeta(acc.type);
+            const dueBit = due != null ? `A pagar ${formatMXN(due)}` : meta.label;
+            return summaryRowHtml(acc.icon || meta.icon, acc.name, dueBit, debt, "debt");
+          }).join("")
+        : `<li class="empty-hint">No tienes deudas registradas.</li>`;
+      body = `<p class="muted summary-detail-lead">Tarjetas y préstamos que tú debes.</p>
+        <ul class="summary-detail-list">${rows}</ul>
+        <p class="summary-detail-total">Total <strong class="debt">${formatMXN(debtTotal)}</strong></p>`;
+    } else if (kind === "patrimonio") {
+      title = "Patrimonio";
+      const accRows = liquid.map(({ acc, bal }) => {
+        const meta = accountTypeMeta(acc.type);
+        return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, "");
+      }).join("");
+      const loanRows = loans.map(({ loan, out }) =>
+        summaryRowHtml("👤", loan.person || "Sin nombre", "Te deben", out, "")
+      ).join("");
+      const empty = !liquid.length && !loans.length
+        ? `<li class="empty-hint">Sin patrimonio registrado.</li>`
+        : "";
+      body = `<p class="muted summary-detail-lead">Cuentas + lo que te deben.</p>
+        ${liquid.length ? `<h4 class="summary-detail-h">Cuentas</h4><ul class="summary-detail-list">${accRows}</ul>` : ""}
+        ${loans.length ? `<h4 class="summary-detail-h">Te deben</h4><ul class="summary-detail-list">${loanRows}</ul>` : ""}
+        ${empty ? `<ul class="summary-detail-list">${empty}</ul>` : ""}
+        <p class="summary-detail-total">Total <strong>${formatMXN(patrimonio)}</strong></p>`;
+    } else {
+      title = "Patrimonio sin deuda";
+      body = `<p class="muted summary-detail-lead">Patrimonio menos lo que debes.</p>
+        <ul class="summary-detail-list">
+          ${summaryRowHtml("◆", "Patrimonio", "Cuentas + te deben", patrimonio, "")}
+          ${summaryRowHtml("−", "Lo que debes", "Tarjetas + préstamos", debtTotal, "debt")}
+        </ul>
+        <p class="summary-detail-total">Sin deuda <strong class="${sinDeuda < 0 ? "debt" : ""}">${formatMXN(sinDeuda)}</strong></p>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.85rem">Toca Patrimonio, Disponible o Lo que debes para ver el detalle de cada cuenta.</p>`;
+    }
+
+    openModal(title, `<div class="summary-detail">${body}</div>`, () => true, { submitLabel: "Cerrar" });
+  }
+
   function renderFinanzas() {
     renderAccounts();
     renderMsiActive();
@@ -2861,6 +2950,11 @@
     const btnAcc = document.getElementById("btn-new-account");
     if (btnAcc) btnAcc.addEventListener("click", () => openAccountModal(null));
     document.getElementById("btn-new-loan")?.addEventListener("click", openLoanModal);
+    document.getElementById("fin-summary-cards")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-summary]");
+      if (!btn) return;
+      openSummaryDetail(btn.dataset.summary);
+    });
     document.getElementById("btn-import-mm")?.addEventListener("click", importMoneyManager);
   }
 
