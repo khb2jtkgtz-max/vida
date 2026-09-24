@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.37";
+  const APP_VERSION = "1.12.38";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -574,9 +574,9 @@
    * (tarjetas y préstamos). Los abonos bajan deuda; los cobros bajan
    * "te deben" y suben la cuenta destino.
    */
-  /** Me queda = disponible (solo cuentas, sin te deben) − tarjetas − préstamos que debo. */
+  /** Patrimonio sin deuda = (cuentas + te deben) − tarjetas − préstamos que debo. */
   function netWorth() {
-    return totalAvailableMoney() - totalCreditDebt();
+    return totalAvailableMoney() + totalLoanOutstanding() - totalCreditDebt();
   }
 
   function accountById(id) {
@@ -1538,11 +1538,10 @@
     const assetsOnly = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debt = totalCreditDebt();
-    const meQueda = assetsOnly - debt;
+    const patrimonio = assetsOnly + owedToMe;
+    const sinDeuda = patrimonio - debt;
     if (totalEl) {
-      totalEl.textContent = owedToMe > 0
-        ? `Disponible ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Te deben ${formatMXN(owedToMe)}`
-        : `Disponible ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Me queda ${formatMXN(meQueda)}`;
+      totalEl.textContent = `Patrimonio ${formatMXN(patrimonio)} · Disponible ${formatMXN(assetsOnly)} · Debes ${formatMXN(debt)} · Sin deuda ${formatMXN(sinDeuda)}`;
     }
     chips.innerHTML = "";
     if (!state.accounts.length) {
@@ -2234,25 +2233,30 @@
     const assets = totalAvailableMoney();
     const owedToMe = totalLoanOutstanding();
     const debtTotal = totalCreditDebt();
-    // Disponible = solo cuentas (a la mano). Me queda = disponible − debes. Te deben va aparte abajo.
-    const meQueda = assets - debtTotal;
+    // Patrimonio = cuentas + te deben; Disponible = solo cuentas; Sin deuda = patrimonio − debes
+    const patrimonio = assets + owedToMe;
+    const sinDeuda = patrimonio - debtTotal;
+    const patEl = document.getElementById("fin-patrimonio");
+    if (patEl) patEl.textContent = formatMXN(patrimonio);
+    const patHint = document.getElementById("fin-patrimonio-hint");
+    if (patHint) {
+      patHint.textContent = owedToMe > 0
+        ? `Cuentas ${formatMXN(assets)} + te deben ${formatMXN(owedToMe)}`
+        : "Cuentas (nada te deben)";
+    }
     const assetsEl = document.getElementById("fin-assets");
     if (assetsEl) assetsEl.textContent = formatMXN(assets);
     const assetsHint = document.getElementById("fin-assets-hint");
-    if (assetsHint) {
-      assetsHint.textContent = owedToMe > 0
-        ? `A la mano · te deben aparte ${formatMXN(owedToMe)}`
-        : "A la mano · solo cuentas";
-    }
+    if (assetsHint) assetsHint.textContent = "A la mano · solo cuentas";
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
     const balEl = document.getElementById("fin-balance");
     if (balEl) {
-      balEl.textContent = formatMXN(meQueda);
-      balEl.classList.toggle("neg-net", meQueda < 0);
+      balEl.textContent = formatMXN(sinDeuda);
+      balEl.classList.toggle("neg-net", sinDeuda < 0);
     }
     const balHint = document.getElementById("fin-balance-hint");
-    if (balHint) balHint.textContent = "Disponible − debes";
+    if (balHint) balHint.textContent = "Patrimonio − debes";
     const ingEl = document.getElementById("fin-ingresos");
     if (ingEl) ingEl.textContent = formatMXN(ingresos);
     const gasEl = document.getElementById("fin-gastos");
@@ -2260,7 +2264,7 @@
     const loansTotal = document.getElementById("fin-loans-total");
     if (loansTotal) loansTotal.textContent = formatMXN(owedToMe);
     const balLabel = document.getElementById("fin-balance-label");
-    if (balLabel) balLabel.textContent = "Me queda";
+    if (balLabel) balLabel.textContent = "Sin deuda";
     // breakdown list removed from UI; keep no-op safe
     if (typeof renderDebtBreakdown === "function") {
       const list = document.getElementById("fin-debt-breakdown");
