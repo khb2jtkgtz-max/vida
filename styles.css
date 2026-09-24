@@ -1,28 +1,28 @@
-/* Vida 1.12 — dark glass (Opal-inspired), limpia / sencilla / elegante */
+/* Vida 1.12 — minimalist B&W; red only for debts / urgencies / failures */
 :root {
-  --bg: #000000;
-  --bg-deep: #0A0A0C;
+  --bg: #000;
+  --bg-deep: #0a0a0a;
   --bg-elev: rgba(255, 255, 255, 0.06);
   --bg-card: rgba(255, 255, 255, 0.055);
-  --bg-card-solid: #121214;
+  --bg-card-solid: #121212;
   --bg-hover: rgba(255, 255, 255, 0.07);
-  --glass: rgba(22, 22, 26, 0.72);
-  --glass-strong: rgba(18, 18, 22, 0.88);
-  --border: rgba(255, 255, 255, 0.10);
+  --glass: rgba(18, 18, 18, 0.72);
+  --glass-strong: rgba(12, 12, 12, 0.88);
+  --border: rgba(255, 255, 255, 0.12);
   --separator: rgba(255, 255, 255, 0.08);
-  --text: #F5F5F7;
-  --muted: #A1A1AA;
-  --primary: #5EEAD4;
-  --primary-dim: rgba(94, 234, 212, 0.16);
-  --primary-text: #042F2E;
-  --success: #34D399;
-  --success-dim: rgba(52, 211, 153, 0.16);
-  --danger: #F87171;
-  --danger-dim: rgba(248, 113, 113, 0.16);
-  --warn: #FBBF24;
-  --warn-dim: rgba(251, 191, 36, 0.16);
-  --ingreso: #34D399;
-  --gasto: #F87171;
+  --text: #f5f5f5;
+  --muted: #8a8a8a;
+  --primary: #ffffff;
+  --primary-dim: rgba(255, 255, 255, 0.12);
+  --primary-text: #000;
+  --success: #e5e5e5;
+  --success-dim: rgba(255, 255, 255, 0.08);
+  --danger: #ef4444;
+  --danger-dim: rgba(239, 68, 68, 0.15);
+  --warn: #ef4444;
+  --warn-dim: rgba(239, 68, 68, 0.15);
+  --ingreso: #f5f5f5;
+  --gasto: #f5f5f5;
   --radius: 22px;
   --radius-sm: 14px;
   --radius-pill: 999px;
@@ -44,8 +44,7 @@ body {
   min-height: 100dvh;
   font-family: var(--font);
   background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(94, 234, 212, 0.07), transparent 55%),
-    radial-gradient(900px 500px at 100% 20%, rgba(99, 102, 241, 0.05), transparent 50%),
+    radial-gradient(900px 480px at 50% -15%, rgba(255, 255, 255, 0.04), transparent 55%),
     var(--bg);
   color: var(--text);
   line-height: 1.45;
@@ -163,7 +162,7 @@ a { color: var(--primary); }
 .tab.active {
   background: var(--primary-dim);
   color: var(--primary);
-  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
 }
 
 /* —— Buttons —— */
@@ -340,7 +339,7 @@ a { color: var(--primary); }
 .form-row input:focus,
 .form-row select:focus,
 .form-row textarea:focus {
-  border-color: rgba(94, 234, 212, 0.45);
+  border-color: rgba(255, 255, 255, 0.45);
   box-shadow: 0 0 0 3px var(--primary-dim);
 }
 .form-row textarea { min-height: 80px; resize: vertical; }
@@ -451,7 +450,7 @@ a { color: var(--primary); }
 .habit-today-btn.done {
   background: var(--success);
   border-color: var(--success);
-  color: #042F2E;
+  color: var(--primary-text);
 }
 .habit-today-btn.bad {
   background: var(--danger);
@@ -644,10 +643,10 @@ a { color: var(--primary); }
 .stat-card.balance .stat-value { color: var(--primary); }
 .stat-card.ingreso .stat-value { color: var(--ingreso); }
 .stat-card.gasto .stat-value { color: var(--gasto); }
-.stat-card.loan .stat-value { color: var(--warn); }
-.stat-card.debt-owe .stat-value { color: var(--gasto); }
+.stat-card.loan .stat-value { color: var(--text); }
+.stat-card.debt-owe .stat-value { color: var(--danger); }
 .stat-card.assets .stat-value { color: var(--ingreso); }
-#fin-balance.neg-net { color: var(--gasto); }
+#fin-balance.neg-net { color: var(--danger); }
 .fin-debt-breakdown-card { margin-bottom: 1rem; }
 .fin-debt-breakdown {
   list-style: none;
@@ -696,11 +695,11 @@ a { color: var(--primary); }
 .fin-debt-due { font-size: 0.72rem; color: var(--warn); }
 .fin-debt-amt {
   font-family: var(--mono);
-  color: var(--gasto);
+  color: var(--danger);
   font-weight: 600;
   flex-shrink: 0;
 }
-.accounts-total .debt-total { color: var(--gasto); }
+.accounts-total .debt-total { color: var(--danger); }
 
 .finanzas-layout {
   margin-top: 0.25rem;
@@ -803,7 +802,7 @@ a { color: var(--primary); }
   align-self: center;
 }
 .account-chip-bal.debt,
-.account-chip-bal.neg { color: var(--gasto); }
+.account-chip-bal.neg { color: var(--danger); }
 .account-chip-pay {
   font-size: 0.72rem;
   color: var(--muted);
@@ -813,7 +812,7 @@ a { color: var(--primary); }
   text-align: right;
 }
 .account-chip-pay.soon { color: var(--warn); font-weight: 600; }
-.account-chip-pay.overdue { color: var(--gasto); font-weight: 600; }
+.account-chip-pay.overdue { color: var(--danger); font-weight: 600; }
 .account-chip-pay.muted { opacity: 0.75; }
 .account-chip.credit { align-items: stretch; }
 .account-chip-main {
@@ -884,13 +883,13 @@ a { color: var(--primary); }
 }
 .payment-alert.soon {
   background: var(--warn-dim);
-  border-color: rgba(251, 191, 36, 0.28);
-  color: #FCD34D;
+  border-color: rgba(239, 68, 68, 0.28);
+  color: var(--warn);
 }
 .payment-alert.overdue {
   background: var(--danger-dim);
-  border-color: rgba(248, 113, 113, 0.28);
-  color: var(--gasto);
+  border-color: rgba(239, 68, 68, 0.28);
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -948,7 +947,7 @@ a { color: var(--primary); }
 .preset-chip:hover {
   background: var(--primary-dim);
   color: var(--primary);
-  border-color: rgba(94, 234, 212, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 .credit-fields {
   display: flex;
@@ -956,7 +955,7 @@ a { color: var(--primary); }
   gap: 0.65rem;
   padding: 0.65rem 0.75rem;
   border-radius: 14px;
-  border: 1px dashed rgba(94, 234, 212, 0.3);
+  border: 1px dashed rgba(255, 255, 255, 0.28);
   background: var(--primary-dim);
   margin-bottom: 0.25rem;
 }
@@ -1035,7 +1034,8 @@ a { color: var(--primary); }
 .tx-day-total small { color: var(--muted); font-size: 0.68rem; }
 .tx-day-total b { font-family: var(--mono); font-size: 0.72rem; }
 .tx-day-total.ingreso b, .tx-day-total.neto.positive b { color: var(--ingreso); }
-.tx-day-total.gasto b, .tx-day-total.neto.negative b { color: var(--gasto); }
+.tx-day-total.gasto b { color: var(--gasto); }
+.tx-day-total.neto.negative b { color: var(--danger); }
 .tx-day-list { list-style: none; margin: 0; padding: 0; }
 .tx-item {
   display: flex;
@@ -1055,7 +1055,7 @@ a { color: var(--primary); }
   flex-shrink: 0;
 }
 .tx-icon.ingreso { background: var(--success-dim); color: var(--ingreso); }
-.tx-icon.gasto { background: var(--danger-dim); color: var(--gasto); }
+.tx-icon.gasto { background: rgba(255, 255, 255, 0.08); color: var(--text); }
 .tx-info { flex: 1; min-width: 0; }
 .tx-info strong {
   display: block;
@@ -1102,7 +1102,7 @@ a { color: var(--primary); }
   min-width: 2px;
   transition: width 0.3s ease;
 }
-.chart-bar-fill.gasto-bar { background: var(--danger); }
+.chart-bar-fill.gasto-bar { background: rgba(255, 255, 255, 0.45); }
 .chart-row .amt { font-family: var(--mono); text-align: right; font-size: 0.75rem; }
 
 /* Proyectos */
@@ -1151,7 +1151,7 @@ a { color: var(--primary); }
   margin-top: 0.25rem;
 }
 .badge.activo { background: var(--success-dim); color: var(--success); }
-.badge.pausado { background: var(--warn-dim); color: #FCD34D; }
+.badge.pausado { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
 .badge.terminado { background: rgba(161,161,170,0.18); color: var(--muted); }
 
 .project-detail-header {
@@ -1194,7 +1194,7 @@ a { color: var(--primary); }
 .task-check.done {
   background: var(--success);
   border-color: var(--success);
-  color: #042F2E;
+  color: var(--primary-text);
 }
 .task-info { flex: 1; min-width: 0; }
 .task-info strong { font-size: 1rem; font-weight: 500; }
@@ -1276,7 +1276,7 @@ a { color: var(--primary); }
   padding: 0 6px;
   overflow: hidden;
   white-space: nowrap;
-  color: #042F2E;
+  color: var(--primary-text);
   font-weight: 600;
   z-index: 1;
 }
@@ -1307,7 +1307,7 @@ a { color: var(--primary); }
 .weekday-pill input { display: none; }
 .weekday-pill:has(input:checked) {
   background: var(--primary-dim);
-  border-color: rgba(94, 234, 212, 0.35);
+  border-color: rgba(255, 255, 255, 0.35);
   color: var(--primary);
 }
 .check-inline {
@@ -1356,15 +1356,15 @@ a { color: var(--primary); }
   min-width: 4px;
   background: repeating-linear-gradient(
     -45deg,
-    rgba(248, 113, 113, 0.9),
-    rgba(248, 113, 113, 0.9) 2px,
+    rgba(239, 68, 68, 0.9),
+    rgba(239, 68, 68, 0.9) 2px,
     rgba(255, 255, 255, 0.2) 2px,
     rgba(255, 255, 255, 0.2) 4px
   );
   border-radius: 3px;
   z-index: 2;
   pointer-events: none;
-  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.45);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45);
 }
 
 /* Modal / sheets */
@@ -1567,7 +1567,7 @@ a { color: var(--primary); }
 }
 #sync-banner-text { flex: 1; min-width: 0; }
 .sync-banner.is-synced { color: var(--text); }
-.sync-banner.is-offline { color: #FCD34D; }
+.sync-banner.is-offline { color: var(--muted); }
 .sync-banner.is-error { color: var(--danger); }
 .sync-banner.is-pending { color: var(--text); }
 .sync-dot {
@@ -1618,7 +1618,7 @@ a { color: var(--primary); }
   margin-top: 0.25rem;
   padding: 0.85rem;
   border-radius: 16px;
-  border: 1px dashed rgba(94, 234, 212, 0.35);
+  border: 1px dashed rgba(255, 255, 255, 0.35);
   background: var(--primary-dim);
 }
 .sync-panel-host { margin-bottom: 0.25rem; }
@@ -1632,7 +1632,7 @@ a { color: var(--primary); }
   padding: 0.75rem 1rem;
   margin-bottom: 0.85rem;
   border-radius: 14px;
-  border: 1px solid rgba(52, 211, 153, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background: var(--success-dim);
   color: var(--text);
   font-size: 0.9rem;
@@ -1808,7 +1808,7 @@ a { color: var(--primary); }
   font-size: 0.9rem;
   font-weight: 600;
 }
-.account-group-sum.debt { color: var(--gasto); }
+.account-group-sum.debt { color: var(--danger); }
 .account-group-credit-heads {
   display: flex;
   flex-wrap: wrap;
@@ -1818,7 +1818,7 @@ a { color: var(--primary); }
 }
 .account-group-credit-heads strong {
   font-family: var(--mono);
-  color: var(--gasto);
+  color: var(--danger);
 }
 .account-chip-stack {
   display: flex;
@@ -1856,7 +1856,7 @@ a { color: var(--primary); }
   text-align: right;
 }
 .account-chip-amt.debt,
-.account-chip-amt.neg { color: var(--gasto); }
+.account-chip-amt.neg { color: var(--danger); }
 .account-chip-dual {
   display: flex;
   gap: 0.65rem;
@@ -2171,10 +2171,11 @@ a { color: var(--primary); }
 
 
 .tx-icon.msi {
-  background: rgba(245, 158, 11, 0.18);
-  color: var(--warn);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
   font-size: 0.55rem;
   letter-spacing: 0.02em;
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 .tx-msi-badge {
   display: inline-block;
@@ -2184,14 +2185,15 @@ a { color: var(--primary); }
   font-size: 0.72rem;
   font-weight: 600;
   font-family: var(--mono);
-  color: var(--warn);
-  background: rgba(245, 158, 11, 0.14);
+  color: var(--text);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }
 .msi-form-block {
   padding: 0.65rem 0.75rem;
   border-radius: 12px;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   margin: 0.15rem 0 0.35rem;
 }
 .msi-form-block.hidden { display: none !important; }

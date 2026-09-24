@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.33";
+  const APP_VERSION = "1.12.34";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -19,8 +19,8 @@
   const SYNC_DEBOUNCE_MS = 1500;
 
   const HABIT_COLORS = [
-    "#3d9cf0", "#3ecf8e", "#e6a23c", "#f07178",
-    "#a78bfa", "#22d3ee", "#f472b6", "#84cc16"
+    "#f5f5f5", "#d4d4d4", "#a3a3a3", "#737373",
+    "#525252", "#404040", "#262626", "#ffffff"
   ];
 
   const DEFAULT_CATEGORIES = {
