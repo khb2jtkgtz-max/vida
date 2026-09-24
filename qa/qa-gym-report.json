@@ -1,0 +1,78 @@
+{
+  "when": "2026-09-22T14:26:35.997Z",
+  "url": "http://127.0.0.1:8877/?v=qa-gym-1790087154028",
+  "results": [
+    {
+      "id": "1-shell",
+      "status": "PASS",
+      "note": "v1.12.11"
+    },
+    {
+      "id": "2-mas-export-import",
+      "status": "PASS",
+      "note": "habits=3 export=true importCancel"
+    },
+    {
+      "id": "3-footer-cancel-delete",
+      "status": "PASS",
+      "note": "hábito+proyecto+tarea"
+    },
+    {
+      "id": "4-racha",
+      "status": "PASS",
+      "note": "mejor=2 actual=0 dates=2026-09-17,2026-09-18,2026-09-19,2026-09-20,2026-09-21"
+    },
+    {
+      "id": "5-calendario-tombstone",
+      "status": "PASS",
+      "note": "2026-09-03 done→miss→"
+    },
+    {
+      "id": "6a-fin-orden",
+      "status": "PASS",
+      "note": "Movimientos | Por categoría"
+    },
+    {
+      "id": "6b-pago-alerta",
+      "status": "PASS",
+      "note": "bal→-3500"
+    },
+    {
+      "id": "6c-prestamo",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "6d-filtros",
+      "status": "PASS",
+      "note": "{\"g\":37,\"i\":15,\"a\":3,\"hasQa\":true,\"typOptions\":[\"all\",\"ingreso\",\"gasto\"]}"
+    },
+    {
+      "id": "7a-incumplidos-tombstone",
+      "status": "PASS",
+      "note": "2026-09-22"
+    },
+    {
+      "id": "7b-tarea-hecha-editable",
+      "status": "PASS",
+      "note": "QA Footer Task Editada"
+    },
+    {
+      "id": "8-sync-ab",
+      "status": "PASS",
+      "note": "code=x76y968w… wd=0,6 cleared"
+    },
+    {
+      "id": "8b-sync-disconnect",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "id": "9-js-errors",
+      "status": "PASS",
+      "note": ""
+    }
+  ],
+  "pass": 14,
+  "fail": 0
+}

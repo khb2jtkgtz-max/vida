@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.57";
+  const APP_VERSION = "1.12.58";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -4211,10 +4211,19 @@
     }, SYNC_DEBOUNCE_MS);
   }
 
+  let syncQueued = false;
+
+  function countTxIds(st) {
+    return new Set(((st && st.transactions) || []).map((t) => t && t.id).filter(Boolean));
+  }
+
   async function syncNow(opts) {
     const quiet = opts && opts.quiet;
     if (!syncId) return;
-    if (syncInFlight) return;
+    if (syncInFlight) {
+      syncQueued = true;
+      return;
+    }
     if (!navigator.onLine) {
       setSyncStatus("offline");
       return;
@@ -4223,42 +4232,73 @@
     setSyncStatus("pending");
     try {
       if (!(await trySyncHealth())) {
-        throw new Error("Sync no disponible ahora. Tus datos están seguros en este dispositivo; usa Exportar respaldo.");
+        throw new Error("Sync no disponible ahora. Tus datos quedan en este dispositivo; al volver internet se suben.");
       }
-      const remotePack = await pullRemote();
-      const remote = remotePack && remotePack.data;
-      const remoteState = remote && remote.state ? remote.state : null;
-      if (remoteState) {
-        const merged = mergeStates(state, remoteState);
+      // Hasta 3 intentos: pull → merge → push → verificar que lo local llegó a la nube
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const remotePack = await pullRemote();
+        const remote = remotePack && remotePack.data;
+        const remoteState = remote && remote.state ? remote.state : null;
+        const beforeIds = countTxIds(state);
+        if (remoteState) {
+          const merged = mergeStates(state, remoteState);
+          applyRemoteLock = true;
+          try {
+            state = merged;
+            state.updatedAt = Math.max(Number(state.updatedAt || 0), Date.now());
+            ensureState();
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          } finally {
+            applyRemoteLock = false;
+          }
+          if (!selectedHabitId || !state.habits.some((h) => h.id === selectedHabitId)) {
+            selectedHabitId = state.habits[0]?.id || null;
+          }
+          if (!selectedProjectId || !state.projects.some((p) => p.id === selectedProjectId)) {
+            selectedProjectId = state.projects[0]?.id || null;
+          }
+          if (attempt === 0 || !quiet) renderAll();
+          else renderFinanzas();
+        } else {
+          state.updatedAt = Date.now();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+        await pushRemote(exportStateBlob());
+        // Verificar: la nube debe incluir los movimientos que teníamos antes de mergear
+        const checkPack = await pullRemote();
+        const checkState = checkPack && checkPack.data && checkPack.data.state;
+        if (!checkState) break;
+        const cloudIds = countTxIds(checkState);
+        const missing = [...beforeIds].filter((id) => !cloudIds.has(id));
+        // Aplicar lo que haya en la nube (p.ej. cambios de la Mac) sin perder lo local
+        const again = mergeStates(state, checkState);
         applyRemoteLock = true;
         try {
-          state = merged;
+          state = again;
           ensureState();
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } finally {
           applyRemoteLock = false;
         }
-        if (!selectedHabitId || !state.habits.some((h) => h.id === selectedHabitId)) {
-          selectedHabitId = state.habits[0]?.id || null;
-        }
-        if (!selectedProjectId || !state.projects.some((p) => p.id === selectedProjectId)) {
-          selectedProjectId = state.projects[0]?.id || null;
-        }
-        renderAll();
-      } else {
+        if (!missing.length) break;
+        // Alguien pisó la nube: reintentar subida
         state.updatedAt = Date.now();
-        saveState();
+        state.pendingSync = true;
       }
-      await pushRemote(exportStateBlob());
       state.pendingSync = false;
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+      renderAll();
       setSyncStatus("synced");
-      if (!quiet) toast("Datos sincronizados. Guarda tu código por si reinstalas.");
+      if (!quiet) toast("Datos sincronizados entre tus dispositivos.");
     } catch (e) {
       setSyncStatus("error", e.message || String(e));
       if (!quiet) toast("Error al sincronizar: " + (e.message || e));
     } finally {
       syncInFlight = false;
+      if (syncQueued) {
+        syncQueued = false;
+        setTimeout(() => { syncNow({ quiet: true }).catch(() => {}); }, 400);
+      }
     }
   }
 
@@ -4390,7 +4430,7 @@
     if (!syncId || !navigator.onLine) return;
     pullIfLive();
     // Mac often deja la pestaña abierta: bajar cambios cada 20s mientras esté visible
-    liveSyncTimer = setInterval(pullIfLive, 20000);
+    liveSyncTimer = setInterval(pullIfLive, (state && state.pendingSync) ? 8000 : 15000);
   }
 
   function initSyncUI() {
@@ -4440,6 +4480,10 @@
     window.addEventListener("online", () => {
       setSyncStatus(syncId ? "pending" : "idle");
       startLiveSync();
+      if (syncId) {
+        toast("Internet de vuelta — subiendo cambios…");
+        syncNow({ quiet: true }).catch(() => {});
+      }
     });
     window.addEventListener("offline", () => {
       setSyncStatus("offline");
