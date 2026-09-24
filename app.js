@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.31";
+  const APP_VERSION = "1.12.32";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1556,9 +1556,12 @@
         const isCredit = a.type === "credito";
         const debtAmt = isOwed ? creditDebtAmount(a) : 0;
         const canPay = isOwed && debtAmt > 0;
+        const filtSel = document.getElementById("fin-filter-account");
+        const isSelected = !!(filtSel && filtSel.value === a.id);
         const card = document.createElement("div");
-        card.className = "account-chip" + (isOwed ? " credit" : "");
+        card.className = "account-chip" + (isOwed ? " credit" : "") + (isSelected ? " selected" : "");
         card.style.setProperty("--acc-color", a.color || HABIT_COLORS[0]);
+        card.dataset.accountId = a.id;
 
         let amountsHtml = "";
         if (isCredit) {
@@ -1583,7 +1586,7 @@
         }
 
         card.innerHTML = `
-          <button type="button" class="account-chip-main" title="Editar cuenta">
+          <button type="button" class="account-chip-main" title="${isSelected ? "Quitar filtro" : "Ver movimientos"}">
             <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
             <span class="account-chip-stack">
               <span class="account-chip-top">
@@ -1597,14 +1600,24 @@
             </span>
           </button>
           <div class="account-chip-actions">
-            <button type="button" class="account-chip-edit-btn" title="Editar">✎</button>
+            <button type="button" class="account-chip-edit-btn" title="Editar" aria-label="Editar cuenta">✎</button>
             ${canPay ? `<button type="button" class="account-chip-pay-btn" title="Pagar">Pagar</button>` : ""}
           </div>`;
         const openEdit = (e) => {
           if (e) { e.preventDefault(); e.stopPropagation(); }
           openAccountModal(a);
         };
-        card.querySelector(".account-chip-main").addEventListener("click", openEdit);
+        card.querySelector(".account-chip-main").addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const filt = document.getElementById("fin-filter-account");
+          if (!filt) return;
+          if (filt.value === a.id) filt.value = "all";
+          else filt.value = a.id;
+          renderFinanzas();
+          const mov = document.getElementById("tx-list")?.closest(".card") || document.getElementById("tx-list");
+          if (mov) mov.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
         card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
         const payBtn = card.querySelector(".account-chip-pay-btn");
         if (payBtn) {
@@ -1628,6 +1641,10 @@
         ).join("");
       if ([...filt.options].some((o) => o.value === prev)) filt.value = prev;
       else filt.value = "all";
+      const sel = filt.value;
+      chips.querySelectorAll(".account-chip").forEach((el) => {
+        el.classList.toggle("selected", sel !== "all" && el.dataset.accountId === sel);
+      });
     }
     renderPaymentAlerts();
   }
@@ -2075,9 +2092,10 @@
     const wrap = document.getElementById("msi-active-card");
     if (!list || !empty) return;
     const rows = activeMsiTransactions();
-    if (wrap) wrap.classList.toggle("hidden", false);
+    if (wrap) wrap.classList.toggle("hidden", rows.length === 0);
     list.innerHTML = "";
     empty.classList.toggle("hidden", rows.length > 0);
+    if (!rows.length) return;
     rows.forEach((t) => {
       const acc = accountById(t.accountId);
       const paid = Number(t.msiPaidMonths) || 0;
@@ -2142,13 +2160,22 @@
 
   function renderFinanzas() {
     renderAccounts();
+    renderMsiActive();
     renderLoans();
     const ym = finMonthValue();
     const typeFilter = document.getElementById("fin-filter-type").value;
     const accountFilter = document.getElementById("fin-filter-account")?.value || "all";
     let txs = txsForMonth(ym);
     if (accountFilter !== "all") {
-      txs = txs.filter((t) => t.accountId === accountFilter);
+      const pairIds = new Set();
+      txs.forEach((t) => {
+        if (t.accountId === accountFilter && t._transferPair) pairIds.add(t._transferPair);
+      });
+      txs = txs.filter((t) =>
+        t.accountId === accountFilter ||
+        (t._transferPair && pairIds.has(t._transferPair)) ||
+        (t.category === "Transferencia" && t.accountId === accountFilter)
+      );
     }
     let ingresos = 0, gastos = 0;
     txs.forEach((t) => {
@@ -2202,9 +2229,29 @@
 
     const ul = document.getElementById("tx-list");
     const empty = document.getElementById("tx-empty");
+    const filterBanner = document.getElementById("tx-account-filter-banner");
+    const filteredAcc = accountFilter !== "all" ? accountById(accountFilter) : null;
+    if (filterBanner) {
+      if (filteredAcc) {
+        filterBanner.classList.remove("hidden");
+        filterBanner.innerHTML = `<span>Cuenta: <strong>${escapeHtml(filteredAcc.name)}</strong></span>
+          <button type="button" class="btn-ghost btn-sm" id="tx-filter-clear">Ver todas</button>`;
+        filterBanner.querySelector("#tx-filter-clear")?.addEventListener("click", () => {
+          const f = document.getElementById("fin-filter-account");
+          if (f) f.value = "all";
+          renderFinanzas();
+        });
+      } else {
+        filterBanner.classList.add("hidden");
+        filterBanner.innerHTML = "";
+      }
+    }
     ul.innerHTML = "";
     if (!listTxs.length) {
       empty.classList.remove("hidden");
+      empty.textContent = filteredAcc
+        ? "No hay movimientos de esta cuenta en este mes."
+        : "No hay movimientos este mes. Usa + Ingreso, + Gasto o ↔ Transferencia.";
     } else {
       empty.classList.add("hidden");
       const grouped = new Map();
@@ -2272,9 +2319,7 @@
     }
 
     // Chart by category
-    const allMonth = txsForMonth(ym).filter((t) =>
-      accountFilter === "all" ? true : t.accountId === accountFilter
-    );
+    const allMonth = txs; // already account-filtered (incl. transfer mates)
     const byCat = {};
     allMonth.forEach((t) => {
       const key = t.type + ":" + t.category;

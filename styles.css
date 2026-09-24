@@ -1895,30 +1895,41 @@ a { color: var(--primary); }
   .fin-dashboard-mm { grid-template-columns: 1fr; }
   .fin-dashboard-mm .fin-total-general { order: -1; }
   .account-chip {
-    flex-wrap: wrap;
-    align-items: stretch;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 10px 12px;
   }
-  .account-chip-main { width: 100%; }
+  .account-chip-main {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    gap: 0.5rem;
+  }
   .account-chip-actions {
-    width: 100%;
+    width: auto;
+    flex-direction: row;
     justify-content: flex-end;
-    margin-top: 0.35rem;
+    margin-top: 0;
+    gap: 0.25rem;
+    align-self: center;
   }
 }
 
 
 .tx-quick-actions {
   display: flex;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
+  gap: 0.4rem;
+  margin: 0 0 0.55rem;
+  padding: 0 2px;
 }
 .btn-tx-ingreso,
 .btn-tx-gasto {
   flex: 1;
-  padding: 0.7rem 0.85rem;
-  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   cursor: pointer;
   border: 1px solid transparent;
 }
@@ -1934,20 +1945,20 @@ a { color: var(--primary); }
 }
 .btn-tx-transfer {
   flex: 1;
-  padding: 0.7rem 0.85rem;
-  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   cursor: pointer;
   background: color-mix(in srgb, var(--primary) 20%, transparent);
   border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent);
   color: var(--text);
 }
-.tx-quick-actions { flex-wrap: wrap; }
-.btn-tx-ingreso, .btn-tx-gasto, .btn-tx-transfer { min-width: calc(50% - 0.35rem); }
-.btn-tx-transfer { min-width: 100%; }
-@media (min-width: 640px) {
-  .btn-tx-ingreso, .btn-tx-gasto, .btn-tx-transfer { min-width: 0; flex: 1; }
+.tx-quick-actions { flex-wrap: nowrap; }
+.btn-tx-ingreso, .btn-tx-gasto, .btn-tx-transfer { min-width: 0; flex: 1; }
+@media (max-width: 380px) {
+  .tx-quick-actions { flex-wrap: wrap; }
+  .btn-tx-transfer { min-width: 100%; }
 }
 
 .btn-tx-ingreso:active,
@@ -1955,13 +1966,13 @@ a { color: var(--primary); }
 
 
 .check-row { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
-.msi-active-card { margin-bottom: 1rem; }
+.msi-active-card { margin-bottom: 0.65rem; }
 .msi-active-list { list-style: none; margin: 0; padding: 0; }
 .msi-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 0.35rem 0.75rem;
-  padding: 0.65rem 0;
+  gap: 0.2rem 0.55rem;
+  padding: 0.45rem 0;
   border-bottom: 1px solid var(--separator);
 }
 .msi-row:last-child { border-bottom: none; }
@@ -1982,4 +1993,178 @@ a { color: var(--primary); }
   display: flex;
   gap: 0.35rem;
   justify-content: flex-end;
+}
+
+
+/* —— Finanzas minimalista v1.12.32 —— */
+.loans-subtitle { display: none !important; }
+
+.account-chip.selected {
+  background: color-mix(in srgb, var(--acc-color, var(--primary)) 12%, transparent);
+  border-left-width: 4px;
+}
+.account-chip.selected:hover {
+  background: color-mix(in srgb, var(--acc-color, var(--primary)) 16%, transparent);
+}
+
+.tx-account-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.55rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 0.82rem;
+  color: var(--text);
+}
+.tx-account-filter-banner.hidden { display: none !important; }
+.tx-account-filter-banner strong { font-weight: 600; }
+
+.account-chip-edit-btn {
+  padding: 0.35rem 0.45rem;
+  min-width: 2rem;
+  font-size: 0.85rem;
+}
+.account-chip-pay-btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+.account-group { margin-bottom: 0.45rem; }
+.account-group-head {
+  padding: 0.25rem 0 0.15rem;
+}
+.account-group-head h4 {
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+  text-transform: none;
+}
+
+.fin-filters select {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 8px;
+  opacity: 0.9;
+}
+
+#panel-finanzas .cuentas-section,
+#panel-finanzas .msi-active-card,
+#panel-finanzas .loans-section {
+  margin-bottom: 0.65rem;
+}
+
+#panel-finanzas .card-head {
+  margin-bottom: 0.15rem;
+  padding-top: 10px;
+}
+
+.fin-month-flow {
+  margin: 0.15rem 0 0.55rem;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+  #btn-import-mm { display: none !important; }
+
+  #panel-finanzas .panel-toolbar {
+    gap: 0.4rem;
+    margin-bottom: 0.55rem;
+  }
+  #panel-finanzas .toolbar-right {
+    gap: 0.3rem;
+  }
+  #panel-finanzas .month-picker input[type="month"] {
+    padding: 0.35rem 0.45rem;
+    font-size: 0.82rem;
+    border-radius: 10px;
+  }
+  #panel-finanzas #btn-new-tx {
+    width: auto;
+    height: auto;
+    min-height: 34px;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  /* Slim summary strip: 3 cols, less chrome */
+  #panel-finanzas .fin-summary-strip.fin-dashboard-mm {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin-bottom: 0.15rem;
+  }
+  #panel-finanzas .fin-summary-strip .fin-total-general { order: 0; }
+  #panel-finanzas .fin-summary-strip .stat-card {
+    padding: 0.55rem 0.45rem;
+    border-radius: 12px;
+  }
+  #panel-finanzas .fin-summary-strip .stat-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.01em;
+  }
+  #panel-finanzas .fin-summary-strip .stat-value {
+    font-size: clamp(0.78rem, 3.2vw, 0.98rem);
+    margin-top: 0.1rem;
+  }
+  #panel-finanzas .fin-summary-strip .stat-hint {
+    display: none;
+  }
+
+  #panel-finanzas .cuentas-section.card,
+  #panel-finanzas .loans-section.card,
+  #panel-finanzas .finanzas-layout > .card,
+  #panel-finanzas .msi-active-card.card {
+    padding: 8px 12px 10px;
+    margin-bottom: 0.55rem;
+  }
+
+  .accounts-chips { margin: 0 -8px; }
+  .account-chip-meta { display: none; }
+  .account-chip-payline { font-size: 0.62rem; }
+  .account-chip-dual {
+    gap: 0.4rem;
+  }
+  .account-chip-dual small { font-size: 0.55rem; }
+  .account-chip-dual b { font-size: 0.72rem; }
+  .account-chip-amt { font-size: 0.85rem; }
+  .account-chip-icon { font-size: 1.05rem; width: 22px; }
+
+  .account-group-credit-heads {
+    font-size: 0.65rem;
+    gap: 0.4rem;
+  }
+
+  .tx-list { margin: 0 -8px; max-height: 360px; }
+
+  #panel-finanzas .fin-chart-card {
+    padding: 8px 12px 10px;
+  }
+  #panel-finanzas .fin-chart-card h3 {
+    margin-bottom: 0.25rem;
+  }
+  .chart-row { gap: 0.35rem; padding: 0.25rem 0; }
+
+  .msi-row-actions .btn-sm {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .payment-alerts { margin-bottom: 0.5rem; gap: 0.3rem; }
+  .payment-alert { padding: 0.5rem 0.65rem; font-size: 0.75rem; border-radius: 12px; }
+}
+
+@media (max-width: 400px) {
+  #panel-finanzas .fin-summary-strip .stat-card {
+    padding: 0.45rem 0.35rem;
+  }
+  #panel-finanzas .account-chip-pay-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.72rem;
+  }
 }

@@ -110,7 +110,7 @@
           </div>
         </div>
         <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
-        <div class="fin-dashboard fin-dashboard-mm">
+        <div class="fin-dashboard fin-dashboard-mm fin-summary-strip">
           <div class="stat-card card assets">
             <span class="stat-label">Lo que tienes</span>
             <strong id="fin-assets" class="stat-value">$0.00</strong>
@@ -134,11 +134,10 @@
         </p>
         <span id="fin-loans-total" class="hidden" aria-hidden="true">$0.00</span>
         <span id="fin-ingresos-label" class="hidden" aria-hidden="true"></span>
-        <div class="card msi-active-card" id="msi-active-card">
+        <div class="card msi-active-card hidden" id="msi-active-card">
           <div class="card-head">
             <div>
               <h3>MSI activos</h3>
-              <p class="muted loans-subtitle">Compras a meses sin intereses. Marca un mes cuando caiga en el corte.</p>
             </div>
           </div>
           <ul id="msi-active-list" class="msi-active-list"></ul>
@@ -148,7 +147,6 @@
           <div class="card-head">
             <div>
               <h3>Cuentas</h3>
-              <p class="muted loans-subtitle">Agrupadas como en tu app: efectivo, bancos, tarjetas…</p>
             </div>
             <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
           </div>
@@ -177,10 +175,11 @@
               <button type="button" id="btn-new-gasto" class="btn-tx-gasto">+ Gasto</button>
               <button type="button" id="btn-new-transfer" class="btn-tx-transfer">↔ Transferencia</button>
             </div>
+            <div id="tx-account-filter-banner" class="tx-account-filter-banner hidden" role="status"></div>
             <ul id="tx-list" class="tx-list"></ul>
             <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes. Usa + Ingreso, + Gasto o ↔ Transferencia.</p>
           </div>
-          <div class="card">
+          <div class="card fin-chart-card">
             <h3>Por categoría</h3>
             <div id="fin-chart" class="chart-bars"></div>
             <p id="chart-empty" class="empty-hint hidden">Sin datos para graficar.</p>
@@ -188,7 +187,7 @@
         </div>
         <div class="card loans-section">
           <div class="card-head">
-            <div><h3>Préstamos que me deben</h3><p class="muted loans-subtitle">Dinero que tú prestaste y te deben. Lo que tú debes va en Cuentas → Préstamo / debo.</p></div>
+            <div><h3>Préstamos que me deben</h3></div>
             <button type="button" id="btn-new-loan" class="btn-ghost btn-sm">+ Préstamo</button>
           </div>
           <div id="loans-list" class="loans-list"></div>
