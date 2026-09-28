@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Vida" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11259" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11259" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11259" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11260" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11260" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11260" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
   <script>
@@ -26,13 +26,13 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=11259" />
+  <link rel="stylesheet" href="styles.css?v=11260" />
 </head>
 <body>
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <img class="brand-mark" src="icons/icon-192.png?v=11259" width="36" height="36" alt="" />
+        <img class="brand-mark" src="icons/icon-192.png?v=11260" width="36" height="36" alt="" />
         <h1>Vida</h1>
       </div>
       <div class="header-actions">
@@ -353,6 +353,35 @@
     </div>
   </div>
 
+  <!-- Detalle de cuenta -->
+  <div id="account-sheet" class="modal acct-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="acct-sheet-name">
+    <div class="modal-backdrop" data-acct-close></div>
+    <div class="modal-box acct-sheet-box">
+      <div class="acct-sheet-head">
+        <button type="button" class="btn-icon acct-back" data-acct-close aria-label="Cerrar">‹</button>
+        <div class="acct-sheet-titles">
+          <h3 id="acct-sheet-name">Cuenta</h3>
+          <span id="acct-sheet-type" class="acct-label"></span>
+        </div>
+        <button type="button" id="acct-sheet-edit" class="btn-icon" aria-label="Editar cuenta" title="Editar cuenta">✎</button>
+      </div>
+      <div class="acct-sheet-body">
+        <div id="acct-sheet-balance" class="acct-balance"></div>
+        <div class="acct-actions">
+          <button type="button" class="acct-btn acct-btn-main" data-acct-quick="gasto">− Gasto</button>
+          <button type="button" class="acct-btn" data-acct-quick="ingreso">+ Ingreso</button>
+          <button type="button" id="acct-sheet-pay" class="acct-btn hidden">Pagar</button>
+        </div>
+        <div class="tx-type-filter acct-pills" role="group" aria-label="Filtrar movimientos">
+          <button type="button" class="tx-type-pill is-active" data-acct-type="all">Todos</button>
+          <button type="button" class="tx-type-pill" data-acct-type="ingreso">Ingresos</button>
+          <button type="button" class="tx-type-pill" data-acct-type="gasto">Egresos</button>
+        </div>
+        <ul id="acct-sheet-list" class="acct-list"></ul>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal -->
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-backdrop" data-close></div>
@@ -418,6 +447,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11259"></script>
+  <script src="app.js?v=11260"></script>
 </body>
 </html>

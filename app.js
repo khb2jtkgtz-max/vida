@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.59";
+  const APP_VERSION = "1.12.60";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1077,6 +1077,8 @@
     document.getElementById("modal")?.classList.add("hidden");
     document.getElementById("sync-modal")?.classList.add("hidden");
     document.getElementById("more-sheet")?.classList.add("hidden");
+    document.getElementById("account-sheet")?.classList.add("hidden");
+    accountSheetId = null;
     modalOnSubmit = null;
   }
 
@@ -1822,7 +1824,7 @@
         }
 
         card.innerHTML = `
-          <button type="button" class="account-chip-main" title="${isSelected ? "Quitar filtro" : "Ver movimientos"}">
+          <button type="button" class="account-chip-main" title="Ver cuenta y movimientos">
             <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
             <span class="account-chip-stack">
               <span class="account-chip-top">
@@ -1846,13 +1848,7 @@
         card.querySelector(".account-chip-main").addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          const filt = document.getElementById("fin-filter-account");
-          if (!filt) return;
-          if (filt.value === a.id) filt.value = "all";
-          else filt.value = a.id;
-          renderFinanzas();
-          const mov = document.getElementById("tx-list")?.closest(".card") || document.getElementById("tx-list");
-          if (mov) mov.scrollIntoView({ behavior: "smooth", block: "start" });
+          openAccountSheet(a.id);
         });
         card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
         const payBtn = card.querySelector(".account-chip-pay-btn");
@@ -2378,7 +2374,7 @@
         </button>
         <button type="button" class="account-chip-pay-btn" data-pay>Pagar</button>
       `;
-      li.querySelector("[data-edit]").addEventListener("click", () => openAccountModal(acc));
+      li.querySelector("[data-edit]").addEventListener("click", () => openAccountSheet(acc.id));
       li.querySelector("[data-pay]").addEventListener("click", () => openCreditPayModal(acc));
       list.appendChild(li);
     });
@@ -2392,7 +2388,18 @@
       .sort((a, b) => b.bal - a.bal);
   }
 
-  function summaryRowHtml(icon, name, meta, amount, amountClass) {
+  function summaryRowHtml(icon, name, meta, amount, amountClass, accId) {
+    if (accId) {
+      return `<li><button type="button" class="summary-detail-row summary-detail-tap" data-acc-open="${escapeAttr(accId)}">
+      <span class="summary-detail-icon" aria-hidden="true">${escapeHtml(icon || "")}</span>
+      <span class="summary-detail-info">
+        <strong>${escapeHtml(name)}</strong>
+        ${meta ? `<span class="muted">${escapeHtml(meta)}</span>` : ""}
+      </span>
+      <strong class="summary-detail-amt ${amountClass || ""}">${formatMXN(amount)}</strong>
+      <span class="summary-detail-chev" aria-hidden="true">›</span>
+    </button></li>`;
+    }
     return `<li class="summary-detail-row">
       <span class="summary-detail-icon" aria-hidden="true">${escapeHtml(icon || "")}</span>
       <span class="summary-detail-info">
@@ -2424,7 +2431,7 @@
       const rows = liquid.length
         ? liquid.map(({ acc, bal }) => {
             const meta = accountTypeMeta(acc.type);
-            return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, bal < 0 ? "neg" : "");
+            return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, bal < 0 ? "neg" : "", acc.id);
           }).join("")
         : `<li class="empty-hint">No hay cuentas de efectivo/banco.</li>`;
       body = `<p class="muted summary-detail-lead">Solo lo que está en tus cuentas (sin lo que te deben).</p>
@@ -2444,7 +2451,7 @@
         ? debts.map(({ acc, debt, due }) => {
             const meta = accountTypeMeta(acc.type);
             const dueBit = due != null ? `A pagar ${formatMXN(due)}` : meta.label;
-            return summaryRowHtml(acc.icon || meta.icon, acc.name, dueBit, debt, "debt");
+            return summaryRowHtml(acc.icon || meta.icon, acc.name, dueBit, debt, "debt", acc.id);
           }).join("")
         : `<li class="empty-hint">No tienes deudas registradas.</li>`;
       body = `<p class="muted summary-detail-lead">Tarjetas y préstamos que tú debes.</p>
@@ -2454,7 +2461,7 @@
       title = "Patrimonio";
       const accRows = liquid.map(({ acc, bal }) => {
         const meta = accountTypeMeta(acc.type);
-        return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, "");
+        return summaryRowHtml(acc.icon || meta.icon, acc.name, meta.label, bal, "", acc.id);
       }).join("");
       const loanRows = loans.map(({ loan, out }) =>
         summaryRowHtml("👤", loan.person || "Sin nombre", "Te deben", out, "")
@@ -2479,10 +2486,18 @@
     }
 
     openModal(title, `<div class="summary-detail">${body}</div>`, () => true, { submitLabel: "Cerrar" });
+    document.querySelectorAll("#modal-form [data-acc-open]").forEach((b) => {
+      b.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeModal();
+        openAccountSheet(b.dataset.accOpen);
+      });
+    });
   }
 
   function renderFinanzas() {
     queueRenderInicio();
+    if (accountSheetId) renderAccountSheet();
     renderAccounts();
     renderMsiActive();
     renderLoans();
@@ -2841,9 +2856,9 @@
 
   const MSI_MONTH_OPTIONS = Array.from({ length: 24 }, (_, i) => i + 1);
 
-  function txFormHtml(tx, presetType) {
+  function txFormHtml(tx, presetType, presetAccountId) {
     const type = tx ? tx.type : (presetType === "ingreso" || presetType === "gasto" ? presetType : "gasto");
-    const defaultAcc = defaultEfectivoAccount().id;
+    const defaultAcc = (presetAccountId && accountById(presetAccountId)) ? presetAccountId : defaultEfectivoAccount().id;
     const accId = tx ? (tx.accountId || defaultAcc) : defaultAcc;
     const pm = tx ? (tx.paymentMethod || "Efectivo") : "Efectivo";
     const acc = accountById(accId);
@@ -3229,7 +3244,7 @@
     openTxModal(tx);
   }
 
-  function openTxModal(tx, presetType) {
+  function openTxModal(tx, presetType, presetAccountId) {
     if (!state.accounts.length) {
       toast("Crea una cuenta primero");
       openAccountModal(null);
@@ -3238,7 +3253,7 @@
     const title = tx
       ? "Editar movimiento"
       : (presetType === "ingreso" ? "Nuevo ingreso" : (presetType === "gasto" ? "Nuevo gasto" : "Nuevo movimiento"));
-    openModal(title, txFormHtml(tx, presetType), (fd) => {
+    openModal(title, txFormHtml(tx, presetType, presetAccountId), (fd) => {
       const type = fd.get("type") || "gasto";
       let category = fd.get("category");
       if (category === "__custom__") {
@@ -4822,6 +4837,145 @@
     }
   }
 
+  // ========== DETALLE DE CUENTA (hoja) ==========
+  let accountSheetId = null;
+  let accountSheetType = "all";
+
+  function openAccountSheet(accId) {
+    if (!accountById(accId)) return;
+    if (accountSheetId !== accId) accountSheetType = "all";
+    accountSheetId = accId;
+    renderAccountSheet();
+    const sheet = document.getElementById("account-sheet");
+    sheet.classList.remove("hidden");
+    const body = sheet.querySelector(".acct-sheet-body");
+    if (body) body.scrollTop = 0;
+  }
+
+  function closeAccountSheet() {
+    accountSheetId = null;
+    document.getElementById("account-sheet")?.classList.add("hidden");
+  }
+
+  function acctTxLabel(t, acc) {
+    if (t._transferPair || t.category === "Transferencia") {
+      const pair = findTransferPair(t);
+      if (pair) {
+        const otherTx = pair.from.id === t.id ? pair.to : pair.from;
+        const other = accountById(otherTx.accountId);
+        const name = other ? other.name : "otra cuenta";
+        return txSignedImpact(t) >= 0 ? `Transferencia de ${name}` : `Transferencia a ${name}`;
+      }
+      return "Transferencia";
+    }
+    return t.category || (t.type === "ingreso" ? "Ingreso" : "Gasto");
+  }
+
+  function renderAccountSheet() {
+    const sheet = document.getElementById("account-sheet");
+    if (!sheet || !accountSheetId) return;
+    const acc = accountById(accountSheetId);
+    if (!acc) { closeAccountSheet(); return; }
+    const meta = accountTypeMeta(acc.type);
+    const isOwed = isOwedAccountType(acc);
+    const isCredit = acc.type === "credito";
+    const bal = accountBalance(acc.id);
+    document.getElementById("acct-sheet-name").textContent = acc.name;
+    document.getElementById("acct-sheet-type").textContent = meta.label;
+
+    // Saldo (misma lógica que Finanzas; MSI solo meses marcados vía txSignedImpact)
+    let head = "";
+    if (isOwed) {
+      const debt = creditDebtAmount(acc);
+      const bits = [];
+      if (isCredit) {
+        const due = creditAmountDue(acc);
+        if (due != null) bits.push(`<span>A pagar <strong class="acct-debt">${formatMXN(due)}</strong></span>`);
+        const lim = Number(acc.creditLimit);
+        if (Number.isFinite(lim) && lim > 0) bits.push(`<span>Crédito disponible <strong>${formatMXN(Math.max(0, lim - debt))}</strong></span>`);
+        const info = creditPaymentInfo(acc);
+        if (info) bits.push(`<span class="${info.overdue ? "acct-debt" : ""}">${escapeHtml(creditPaymentLabel(info))}</span>`);
+      }
+      if (debt <= 0 && bal > 0) {
+        head = `<span class="acct-label">Saldo a favor</span><strong class="acct-big">${formatMXN(bal)}</strong>`;
+      } else {
+        head = `<span class="acct-label">${isCredit ? "Deuda total" : "Lo que debes"}</span>
+          <strong class="acct-big ${debt > 0 ? "acct-debt" : ""}">${formatMXN(debt)}</strong>`;
+      }
+      if (bits.length) head += `<div class="acct-subs">${bits.join("")}</div>`;
+    } else {
+      head = `<span class="acct-label">Saldo</span><strong class="acct-big ${bal < 0 ? "acct-debt" : ""}">${formatMXN(bal)}</strong>`;
+    }
+    document.getElementById("acct-sheet-balance").innerHTML = head;
+
+    const canPay = isOwed && creditDebtAmount(acc) > 0;
+    document.getElementById("acct-sheet-pay").classList.toggle("hidden", !canPay);
+
+    sheet.querySelectorAll("[data-acct-type]").forEach((b) => {
+      b.classList.toggle("is-active", b.dataset.acctType === accountSheetType);
+    });
+
+    let txs = (state.transactions || []).filter((t) => t.accountId === acc.id);
+    if (accountSheetType !== "all") txs = txs.filter((t) => t.type === accountSheetType);
+    txs.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+    const list = document.getElementById("acct-sheet-list");
+    if (!txs.length) {
+      list.innerHTML = `<li class="acct-empty">Sin movimientos${accountSheetType === "all" ? "" : " de este tipo"}.</li>`;
+      return;
+    }
+    const groups = new Map();
+    txs.forEach((t) => {
+      const k = String(t.date || "");
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(t);
+    });
+    list.innerHTML = [...groups.entries()].map(([day, dayTxs]) => {
+      const rows = dayTxs.map((t) => {
+        const impact = txSignedImpact(t);
+        const msi = isMsiPlan(t)
+          ? `MSI ${Number(t.msiPaidMonths) || 0}/${t.msiMonths} · total ${formatMXN(t.amount)}`
+          : "";
+        const sub = [msi, t.note].filter(Boolean).join(" · ");
+        const sign = impact > 0 ? "+" : (impact < 0 ? "−" : "");
+        return `<li><button type="button" class="acct-tx" data-acct-tx="${escapeAttr(t.id)}">
+          <span class="acct-tx-info">
+            <span class="acct-tx-title">${escapeHtml(acctTxLabel(t, acc))}</span>
+            ${sub ? `<span class="acct-tx-sub">${escapeHtml(sub)}</span>` : ""}
+          </span>
+          <span class="acct-tx-amt ${impact > 0 ? "pos" : ""}">${sign}${formatMXN(Math.abs(impact))}</span>
+        </button></li>`;
+      }).join("");
+      return `<li class="acct-day"><div class="acct-day-title">${escapeHtml(formatTxDay(day))}</div><ul>${rows}</ul></li>`;
+    }).join("");
+  }
+
+  function initAccountSheet() {
+    const sheet = document.getElementById("account-sheet");
+    if (!sheet) return;
+    sheet.addEventListener("click", (e) => {
+      if (e.target.closest("[data-acct-close]")) { closeAccountSheet(); return; }
+      const acc = accountById(accountSheetId);
+      if (!acc) return;
+      const typeBtn = e.target.closest("[data-acct-type]");
+      if (typeBtn) { accountSheetType = typeBtn.dataset.acctType; renderAccountSheet(); return; }
+      const q = e.target.closest("[data-acct-quick]");
+      if (q) { openTxModal(null, q.dataset.acctQuick, acc.id); return; }
+      if (e.target.closest("#acct-sheet-pay")) { openCreditPayModal(acc); return; }
+      if (e.target.closest("#acct-sheet-edit")) { openAccountModal(acc); return; }
+      const txBtn = e.target.closest("[data-acct-tx]");
+      if (txBtn) {
+        const t = (state.transactions || []).find((x) => x.id === txBtn.dataset.acctTx);
+        if (t) openEditMovement(t);
+      }
+    });
+    // Captura: si hay un formulario encima, Escape cierra solo ese
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || sheet.classList.contains("hidden")) return;
+      if (!document.getElementById("modal").classList.contains("hidden")) return;
+      closeAccountSheet();
+    }, true);
+  }
+
   // ========== INICIO (resumen) ==========
   let inicioPopKey = null;
   let inicioRenderQueued = false;
@@ -5250,6 +5404,7 @@
     initFinanzas();
     initProyectos();
     initInicio();
+    initAccountSheet();
     initSyncUI();
     initBackupUI();
     document.getElementById("btn-wipe-seed")?.addEventListener("click", () => { wipeSeed(); });
