@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Vida" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11260" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11260" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11260" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11261" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11261" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11261" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
   <script>
@@ -26,13 +26,13 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=11260" />
+  <link rel="stylesheet" href="styles.css?v=11261" />
 </head>
 <body>
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <img class="brand-mark" src="icons/icon-192.png?v=11260" width="36" height="36" alt="" />
+        <img class="brand-mark" src="icons/icon-192.png?v=11261" width="36" height="36" alt="" />
         <h1>Vida</h1>
       </div>
       <div class="header-actions">
@@ -155,60 +155,71 @@
 
       <!-- ========== FINANZAS ========== -->
       <section id="panel-finanzas" class="panel" role="tabpanel" hidden>
-        <div class="panel-toolbar">
+        <div class="panel-toolbar fin-toolbar">
           <h2>Finanzas</h2>
-          <div class="toolbar-right">
-            <label class="month-picker">
-              <span class="sr-only">Mes</span>
-              <input type="month" id="fin-month" />
-            </label>
-            <button type="button" id="btn-import-mm" class="btn-ghost btn-sm">Importar MM</button>
-            <button type="button" id="btn-new-tx" class="btn-primary btn-sm">+ Movimiento</button>
+          <div class="fin-menu-wrap">
+            <button type="button" id="fin-menu-btn" class="fin-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Más opciones de finanzas">⋯</button>
+            <div id="fin-menu" class="fin-menu hidden" role="menu">
+              <button type="button" id="btn-new-tx" class="fin-menu-item" role="menuitem">Nuevo movimiento</button>
+              <button type="button" id="btn-import-mm" class="fin-menu-item" role="menuitem">Importar Money Manager</button>
+              <label class="fin-menu-item fin-menu-month">Ir a mes
+                <input type="month" id="fin-month" />
+              </label>
+            </div>
           </div>
         </div>
-        <div id="payment-alerts" class="payment-alerts hidden" role="status" aria-live="polite"></div>
-        <div class="fin-dashboard fin-dashboard-mm fin-summary-strip fin-summary-4" id="fin-summary-cards">
-          <button type="button" class="stat-card card patrimonio summary-tap" data-summary="patrimonio" aria-label="Ver patrimonio">
-            <span class="stat-label">Patrimonio</span>
-            <strong id="fin-patrimonio" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-patrimonio-hint">Cuentas + te deben</span>
+
+        <button type="button" id="fin-hero" class="fin-hero" aria-expanded="false" aria-controls="fin-summary-cards">
+          <span class="fin-hero-label">Disponible</span>
+          <strong id="fin-hero-disp" class="fin-hero-big">$0.00</strong>
+          <span class="fin-hero-line">
+            <span class="fin-hero-debt">Debes <b id="fin-hero-debes">$0.00</b></span>
+            <span class="fin-hero-sep" aria-hidden="true">·</span>
+            <span class="fin-hero-recv">Te deben <b id="fin-hero-cobrar">$0.00</b></span>
+            <span class="fin-hero-chev" aria-hidden="true">⌄</span>
+          </span>
+        </button>
+        <div class="fin-breakdown hidden" id="fin-summary-cards">
+          <button type="button" class="fin-bd-row summary-tap" data-summary="patrimonio">
+            <span>Patrimonio</span><strong id="fin-patrimonio">$0.00</strong>
+            <span class="hidden" id="fin-patrimonio-hint"></span>
           </button>
-          <button type="button" class="stat-card card assets summary-tap" data-summary="disponible" aria-label="Ver disponible">
-            <span class="stat-label">Disponible</span>
-            <strong id="fin-assets" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-assets-hint">A la mano · solo cuentas</span>
+          <button type="button" class="fin-bd-row summary-tap" data-summary="disponible">
+            <span>Disponible</span><strong id="fin-assets">$0.00</strong>
+            <span class="hidden" id="fin-assets-hint"></span>
           </button>
-          <button type="button" class="stat-card card receivable summary-tap" data-summary="cobrar" aria-label="Ver lo que está por cobrar">
-            <span class="stat-label">Por cobrar</span>
-            <strong id="fin-receivable" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-receivable-hint">Te deben</span>
+          <button type="button" class="fin-bd-row summary-tap" data-summary="cobrar">
+            <span>Por cobrar</span><strong id="fin-receivable">$0.00</strong>
+            <span class="hidden" id="fin-receivable-hint"></span>
           </button>
-          <button type="button" class="stat-card card debt-owe summary-tap" data-summary="debes" aria-label="Ver lo que debes">
-            <span class="stat-label">Lo que debes</span>
-            <strong id="fin-credit-debt" class="stat-value">$0.00</strong>
-            <span class="stat-hint">Tarjetas + préstamos</span>
+          <button type="button" class="fin-bd-row summary-tap fin-bd-debt" data-summary="debes">
+            <span>Lo que debes</span><strong id="fin-credit-debt">$0.00</strong>
           </button>
-          <button type="button" class="stat-card card balance fin-total-general summary-tap" data-summary="sinDeuda" aria-label="Ver patrimonio sin deuda">
-            <span class="stat-label" id="fin-balance-label">Sin deuda</span>
-            <strong id="fin-balance" class="stat-value">$0.00</strong>
-            <span class="stat-hint" id="fin-balance-hint">Patrimonio − debes</span>
+          <button type="button" class="fin-bd-row summary-tap" data-summary="sinDeuda">
+            <span id="fin-balance-label">Sin deuda</span><strong id="fin-balance">$0.00</strong>
+            <span class="hidden" id="fin-balance-hint"></span>
           </button>
         </div>
-        <p class="fin-month-flow muted" id="fin-month-flow">
-          <span>Mes: ingresos <strong id="fin-ingresos">$0.00</strong></span>
-          <span>·</span>
-          <span>gastos <strong id="fin-gastos">$0.00</strong></span>
-        </p>
+
+        <div class="fin-month-row" id="fin-month-flow">
+          <button type="button" id="fin-month-prev" class="fin-month-arrow" aria-label="Mes anterior">‹</button>
+          <span class="fin-month-mid">
+            <span id="fin-month-label" class="fin-month-name">Mes</span>
+            <span class="fin-month-nums">+<strong id="fin-ingresos">$0.00</strong> · −<strong id="fin-gastos">$0.00</strong></span>
+          </span>
+          <button type="button" id="fin-month-next" class="fin-month-arrow" aria-label="Mes siguiente">›</button>
+        </div>
+
+        <div id="payment-alerts" class="fin-alerts hidden" role="status" aria-live="polite"></div>
+
         <span id="fin-loans-total" class="hidden" aria-hidden="true">$0.00</span>
         <span id="fin-ingresos-label" class="hidden" aria-hidden="true"></span>
-        <div class="card cuentas-section">
-          <div class="card-head">
-            <div>
-              <h3>Cuentas</h3>
-            </div>
-            <button type="button" id="btn-new-account" class="btn-ghost btn-sm">+ Cuenta</button>
+        <div class="fin-accounts cuentas-section">
+          <div class="fin-sec-head">
+            <h3>Cuentas</h3>
+            <button type="button" id="btn-new-account" class="fin-text-btn">+ Cuenta</button>
           </div>
-          <div id="accounts-chips" class="accounts-chips" aria-label="Lista de cuentas"></div>
+          <div id="accounts-chips" class="fin-acc-groups" aria-label="Lista de cuentas"></div>
           <p id="accounts-total" class="hidden" aria-hidden="true"></p>
         </div>
         <div id="fin-debt-breakdown" class="hidden" hidden aria-hidden="true"></div>
@@ -237,11 +248,6 @@
                 </select>
               </div>
             </div>
-            <div class="tx-quick-actions">
-              <button type="button" id="btn-new-ingreso" class="btn-tx-ingreso">+ Ingreso</button>
-              <button type="button" id="btn-new-gasto" class="btn-tx-gasto">+ Gasto</button>
-              <button type="button" id="btn-new-transfer" class="btn-tx-transfer">↔ Transferencia</button>
-            </div>
             <div class="tx-type-filter" role="group" aria-label="Filtrar ingresos o egresos">
               <button type="button" class="tx-type-pill is-active" data-tx-type="all">Todos</button>
               <button type="button" class="tx-type-pill" data-tx-type="ingreso">Ingresos</button>
@@ -249,7 +255,7 @@
             </div>
             <div id="tx-account-filter-banner" class="tx-account-filter-banner hidden" role="status"></div>
             <ul id="tx-list" class="tx-list"></ul>
-            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes. Usa + Ingreso, + Gasto o ↔ Transferencia.</p>
+            <p id="tx-empty" class="empty-hint hidden">No hay movimientos este mes.</p>
           </div>
           <div class="card fin-chart-card">
             <h3>Por categoría</h3>
@@ -264,6 +270,11 @@
           </div>
           <div id="loans-list" class="loans-list"></div>
           <p id="loans-empty" class="empty-hint hidden">Nadie te debe. Agrega a alguien con + Persona.</p>
+        </div>
+        <div class="inicio-quick fin-quick" role="group" aria-label="Registrar rápido">
+          <button type="button" id="btn-new-gasto" class="inicio-quick-btn" data-quick="gasto">− Gasto</button>
+          <button type="button" id="btn-new-ingreso" class="inicio-quick-btn" data-quick="ingreso">+ Ingreso</button>
+          <button type="button" id="btn-new-transfer" class="inicio-quick-btn" data-quick="transfer">↔ Transferir</button>
         </div>
       </section>
 
@@ -447,6 +458,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11260"></script>
+  <script src="app.js?v=11261"></script>
 </body>
 </html>

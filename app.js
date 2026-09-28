@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.60";
+  const APP_VERSION = "1.12.61";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1759,106 +1759,62 @@
       section.className = "account-group";
 
       let groupTotalHtml = "";
-      if (gid === "credito") {
-        let sumPagar = 0, sumRest = 0;
-        list.forEach((a) => {
-          const s = creditPaySplit(a);
-          sumPagar += s.aPagar;
-          sumRest += s.restante;
-        });
-        groupTotalHtml = `
-          <div class="account-group-credit-heads">
-            <span>Saldo a pagar <strong>${formatMXN(sumPagar)}</strong></span>
-            <span>Saldo restante <strong>${formatMXN(sumRest)}</strong></span>
-          </div>`;
-      } else if (gid === "deuda") {
-        const sum = list.reduce((s, a) => s + creditDebtAmount(a), 0);
-        groupTotalHtml = `<span class="account-group-sum debt">${formatMXN(sum)}</span>`;
+      if (gid === "credito" || gid === "deuda") {
+        const sum = list.reduce((s2, a) => s2 + creditDebtAmount(a), 0);
+        groupTotalHtml = `<span class="fin-group-sum${sum > 0 ? " debt" : ""}">${formatMXN(sum)}</span>`;
       } else {
-        const sum = list.reduce((s, a) => s + accountBalance(a.id), 0);
-        groupTotalHtml = `<span class="account-group-sum">${formatMXN(sum)}</span>`;
+        const sum = list.reduce((s2, a) => s2 + accountBalance(a.id), 0);
+        groupTotalHtml = `<span class="fin-group-sum${sum < 0 ? " debt" : ""}">${formatMXN(sum)}</span>`;
       }
 
+      section.className = "fin-acc-group";
       section.innerHTML = `
-        <div class="account-group-head">
+        <div class="fin-group-head">
           <h4>${escapeHtml(metaG.title)}</h4>
           ${groupTotalHtml}
         </div>
-        <div class="account-group-list"></div>`;
-      const listEl = section.querySelector(".account-group-list");
+        <div class="fin-group-list"></div>`;
+      const listEl = section.querySelector(".fin-group-list");
 
       list.forEach((a) => {
         const bal = accountBalance(a.id);
-        const meta = accountTypeMeta(a.type);
         const isOwed = isOwedAccountType(a);
-        const isCredit = a.type === "credito";
         const debtAmt = isOwed ? creditDebtAmount(a) : 0;
-        const canPay = isOwed && debtAmt > 0;
-        const filtSel = document.getElementById("fin-filter-account");
-        const isSelected = !!(filtSel && filtSel.value === a.id);
-        const card = document.createElement("div");
-        card.className = "account-chip" + (isOwed ? " credit" : "") + (isSelected ? " selected" : "");
-        card.style.setProperty("--acc-color", "#ffffff");
-        card.dataset.accountId = a.id;
-
-        let amountsHtml = "";
-        if (isCredit) {
-          const split = creditPaySplit(a);
-          amountsHtml = `
-            <span class="account-chip-dual">
-              <span class="dual-pagar"><small>A pagar</small><b>${formatMXN(split.aPagar)}</b></span>
-              <span class="dual-rest"><small>Restante</small><b>${formatMXN(split.restante)}</b></span>
-            </span>`;
-        } else if (a.type === "deuda") {
-          amountsHtml = `<span class="account-chip-amt debt">${formatMXN(debtAmt)}</span>`;
+        let amtHtml;
+        if (isOwed) {
+          amtHtml = debtAmt > 0
+            ? `<span class="fin-acc-amt debt">${formatMXN(debtAmt)}</span>`
+            : `<span class="fin-acc-amt">${formatMXN(bal > 0 ? bal : 0)}</span>`;
         } else {
-          amountsHtml = `<span class="account-chip-amt ${bal < 0 ? "neg" : ""}">${formatMXN(bal)}</span>`;
+          amtHtml = `<span class="fin-acc-amt${bal < 0 ? " debt" : ""}">${formatMXN(bal)}</span>`;
         }
-
-        const payInfo = isCredit ? creditPaymentInfo(a) : null;
-        let payHtml = "";
-        if (payInfo) {
-          const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 7);
-          const cls = payInfo.overdue ? "overdue" : (urgent ? "soon" : "muted");
-          payHtml = `<span class="account-chip-payline ${cls}">${escapeHtml(creditPaymentLabel(payInfo))}</span>`;
+        let subHtml = "";
+        const payInfo = a.type === "credito" ? creditPaymentInfo(a) : null;
+        if (payInfo && payInfo.dueDate) {
+          const when = formatDayMonth(payInfo.dueDate);
+          const urgent = payInfo.statementPending && (payInfo.overdue || payInfo.daysLeft <= 2);
+          const txt = payInfo.overdue
+            ? `vencido ${when}`
+            : (payInfo.statementPending ? `vence ${when}` : `próximo corte · ${when}`);
+          const due = payInfo.statementPending ? creditAmountDue(a) : null;
+          subHtml = `<span class="fin-acc-sub${urgent ? " urgent" : ""}">${escapeHtml(txt)}${due != null ? ` · pagar ${formatMXN(due)}` : ""}</span>`;
         }
-
+        const card = document.createElement("div");
+        card.className = "fin-acc";
+        card.dataset.accountId = a.id;
         card.innerHTML = `
-          <button type="button" class="account-chip-main" title="Ver cuenta y movimientos">
-            <span class="account-chip-icon" aria-hidden="true">${escapeHtml(a.icon || meta.icon)}</span>
-            <span class="account-chip-stack">
-              <span class="account-chip-top">
-                <span class="account-chip-left">
-                  <strong>${escapeHtml(a.name)}</strong>
-                  <span class="account-chip-meta">${escapeHtml(meta.label)}</span>
-                </span>
-                ${amountsHtml}
-              </span>
-              ${payHtml}
+          <button type="button" class="fin-acc-main account-chip-main" title="Ver cuenta y movimientos">
+            <span class="fin-acc-info">
+              <span class="fin-acc-name">${escapeHtml(a.name)}</span>
+              ${subHtml}
             </span>
-          </button>
-          <div class="account-chip-actions">
-            <button type="button" class="account-chip-edit-btn" title="Editar" aria-label="Editar cuenta">✎</button>
-            ${canPay ? `<button type="button" class="account-chip-pay-btn" title="Pagar">Pagar</button>` : ""}
-          </div>`;
-        const openEdit = (e) => {
-          if (e) { e.preventDefault(); e.stopPropagation(); }
-          openAccountModal(a);
-        };
-        card.querySelector(".account-chip-main").addEventListener("click", (e) => {
+            ${amtHtml}
+            <span class="fin-acc-chev" aria-hidden="true">›</span>
+          </button>`;
+        card.querySelector(".fin-acc-main").addEventListener("click", (e) => {
           e.preventDefault();
-          e.stopPropagation();
           openAccountSheet(a.id);
         });
-        card.querySelector(".account-chip-edit-btn").addEventListener("click", openEdit);
-        const payBtn = card.querySelector(".account-chip-pay-btn");
-        if (payBtn) {
-          payBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openCreditPayModal(a);
-          });
-        }
         listEl.appendChild(card);
       });
       chips.appendChild(section);
@@ -1874,7 +1830,7 @@
       if ([...filt.options].some((o) => o.value === prev)) filt.value = prev;
       else filt.value = "all";
       const sel = filt.value;
-      chips.querySelectorAll(".account-chip").forEach((el) => {
+      chips.querySelectorAll(".fin-acc").forEach((el) => {
         el.classList.toggle("selected", sel !== "all" && el.dataset.accountId === sel);
       });
     }
@@ -1899,28 +1855,26 @@
       strip.onclick = null;
       return;
     }
+    alerts.sort((x, y) => x.info.daysLeft - y.info.daysLeft);
     strip.classList.remove("hidden");
-    strip.innerHTML = alerts.map(({ acc, info }) => {
-      const kind = info.overdue ? "overdue" : "soon";
+    strip.innerHTML = alerts.slice(0, 2).map(({ acc, info }) => {
+      const urgent = info.overdue || info.daysLeft <= 2;
       const duePay = creditAmountDue(acc);
-      const moneyBit = duePay != null
-        ? `Pagar ${formatMXN(duePay)}` + (info.debt > 0 ? ` · Deuda total ${formatMXN(info.debt)}` : "")
-        : `Deuda ${formatMXN(info.debt)}`;
-      const label = info.overdue
-        ? `⚠️ ${escapeHtml(acc.name)}: pago vencido (${escapeHtml(formatDayMonth(info.dueDate))}) · ${moneyBit}`
-        : info.daysLeft === 0
-          ? `⏰ ${escapeHtml(acc.name)}: pago hoy · ${moneyBit}`
-          : `⏰ ${escapeHtml(acc.name)}: pago en ${info.daysLeft} día${info.daysLeft === 1 ? "" : "s"} (${escapeHtml(formatDayMonth(info.dueDate))}) · ${moneyBit}`;
-      return `<button type="button" class="payment-alert ${kind} has-pay-link" data-account-id="${escapeAttr(acc.id)}">
-        <span class="payment-alert-text">${label}</span>
-        <span class="payment-alert-cta">Pagar →</span>
+      const amt = formatMXN(duePay != null ? duePay : info.debt);
+      const when = info.overdue
+        ? `vencido ${formatDayMonth(info.dueDate)}`
+        : (info.daysLeft === 0 ? "vence hoy" : (info.daysLeft === 1 ? "vence mañana" : `vence en ${info.daysLeft} días`));
+      return `<button type="button" class="fin-alert${urgent ? " urgent" : ""}" data-account-id="${escapeAttr(acc.id)}">
+        <span class="fin-alert-dot" aria-hidden="true"></span>
+        <span class="fin-alert-text"><b>${escapeHtml(acc.name)}</b> · ${escapeHtml(when)}</span>
+        <span class="fin-alert-amt">${amt}</span>
+        <span class="fin-acc-chev" aria-hidden="true">›</span>
       </button>`;
     }).join("");
     strip.onclick = (e) => {
-      const btn = e.target.closest(".payment-alert");
+      const btn = e.target.closest(".fin-alert");
       if (!btn || !strip.contains(btn)) return;
-      const acc = state.accounts.find((a) => a.id === btn.dataset.accountId);
-      if (acc) openCreditPayModal(acc);
+      if (accountById(btn.dataset.accountId)) openAccountSheet(btn.dataset.accountId);
     };
   }
 
@@ -2556,6 +2510,21 @@
     }
     const creditDebtEl = document.getElementById("fin-credit-debt");
     if (creditDebtEl) creditDebtEl.textContent = formatMXN(debtTotal);
+    const heroDisp = document.getElementById("fin-hero-disp");
+    if (heroDisp) {
+      heroDisp.textContent = formatMXN(assets);
+      heroDisp.classList.toggle("debt", assets < 0);
+      document.getElementById("fin-hero-debes").textContent = formatMXN(debtTotal);
+      document.querySelector(".fin-hero-debt")?.classList.toggle("is-zero", !(debtTotal > 0));
+      document.getElementById("fin-hero-cobrar").textContent = formatMXN(owedToMe);
+    }
+    const monthLbl = document.getElementById("fin-month-label");
+    if (monthLbl && ym) {
+      const [yy, mm] = ym.split("-").map(Number);
+      const nowD = new Date();
+      const name = MONTHS_ES[mm - 1] || ym;
+      monthLbl.textContent = (name.charAt(0).toUpperCase() + name.slice(1)) + (yy !== nowD.getFullYear() ? " " + yy : "");
+    }
     const balEl = document.getElementById("fin-balance");
     if (balEl) {
       balEl.textContent = formatMXN(sinDeuda);
@@ -2612,7 +2581,7 @@
       empty.classList.remove("hidden");
       empty.textContent = filteredAcc
         ? "No hay movimientos de esta cuenta en este mes."
-        : "No hay movimientos este mes. Usa + Ingreso, + Gasto o ↔ Transferencia.";
+        : "No hay movimientos este mes.";
     } else {
       empty.classList.add("hidden");
       const grouped = new Map();
@@ -3356,6 +3325,42 @@
       openSummaryDetail(btn.dataset.summary);
     });
     document.getElementById("btn-import-mm")?.addEventListener("click", importMoneyManager);
+    initFinanzasNav();
+  }
+
+  function shiftFinMonth(delta) {
+    const input = document.getElementById("fin-month");
+    const [y, m] = String(input.value || "").split("-").map(Number);
+    const base = y && m ? new Date(y, m - 1 + delta, 1) : new Date();
+    input.value = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}`;
+    renderFinanzas();
+  }
+
+  function initFinanzasNav() {
+    const hero = document.getElementById("fin-hero");
+    const bd = document.getElementById("fin-summary-cards");
+    hero?.addEventListener("click", () => {
+      const open = bd.classList.toggle("hidden") === false;
+      hero.setAttribute("aria-expanded", open ? "true" : "false");
+      hero.classList.toggle("is-open", open);
+    });
+    document.getElementById("fin-month-prev")?.addEventListener("click", () => shiftFinMonth(-1));
+    document.getElementById("fin-month-next")?.addEventListener("click", () => shiftFinMonth(1));
+    const menuBtn = document.getElementById("fin-menu-btn");
+    const menu = document.getElementById("fin-menu");
+    const closeMenu = () => { menu.classList.add("hidden"); menuBtn.setAttribute("aria-expanded", "false"); };
+    menuBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = menu.classList.toggle("hidden") === false;
+      menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    menu?.addEventListener("click", (e) => {
+      if (e.target.closest("button.fin-menu-item")) closeMenu();
+    });
+    document.getElementById("fin-month")?.addEventListener("change", closeMenu);
+    document.addEventListener("click", (e) => {
+      if (menu && !menu.classList.contains("hidden") && !e.target.closest(".fin-menu-wrap")) closeMenu();
+    });
   }
 
   // ========== PROYECTOS ==========
