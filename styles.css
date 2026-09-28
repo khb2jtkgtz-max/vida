@@ -2648,3 +2648,194 @@ html[data-theme="light"] .tx-type-pill.is-active {
   color: #fff;
   border-color: #111;
 }
+
+/* ========== INICIO (v1.12.59) ========== */
+#panel-inicio { max-width: 560px; margin: 0 auto; }
+.inicio-greeting {
+  margin: 0.2rem 0 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.inicio-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  padding: 1.15rem 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+.inicio-card:active { transform: scale(0.99); background: var(--bg-hover); }
+.inicio-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.inicio-big {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin: 0.15rem 0 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.inicio-money-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--separator);
+  font-variant-numeric: tabular-nums;
+}
+.inicio-debt strong { color: var(--danger); font-weight: 650; font-size: 1.02rem; }
+.inicio-debt.is-zero strong { color: var(--text); }
+.inicio-recv { font-size: 0.85rem; color: var(--muted); text-align: right; }
+
+.inicio-sec { margin-top: 1.6rem; scroll-margin-top: 1rem; border-radius: var(--radius-sm); }
+.inicio-sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0.2rem 0.5rem;
+}
+.inicio-sec-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.inicio-progress { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.inicio-list { list-style: none; margin: 0; padding: 0; }
+.inicio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 56px;
+  border-bottom: 1px solid var(--separator);
+}
+.inicio-row:last-child { border-bottom: none; }
+.inicio-row-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.35rem 0.25rem;
+  border-radius: var(--radius-sm);
+}
+.inicio-row-main:active { background: var(--bg-hover); }
+.inicio-row-full { flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0.4rem; }
+.inicio-row-text { display: flex; flex-direction: column; min-width: 0; }
+.inicio-row-title {
+  font-size: 1rem;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  transition: color 0.2s ease;
+}
+.inicio-row-sub { font-size: 0.8rem; color: var(--muted); }
+.inicio-amt { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inicio-row.is-done .inicio-row-title { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.inicio-row.is-failed .inicio-row-sub,
+.inicio-row.is-urgent .inicio-when,
+.inicio-row.is-urgent .inicio-amt { color: var(--danger); }
+
+.inicio-check {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  position: relative;
+}
+.inicio-check::before {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.inicio-check span {
+  position: relative;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary-text);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.inicio-row.is-done .inicio-check::before { background: var(--primary); border-color: var(--primary); }
+.inicio-row.is-done .inicio-check span { opacity: 1; transform: scale(1); }
+.inicio-row.is-failed .inicio-check::before { border-color: var(--danger); }
+.inicio-check:active::before { transform: scale(0.9); }
+.inicio-check.pop::before { animation: inicio-pop 0.36s ease-out; }
+.inicio-check.pop span { animation: inicio-tick 0.36s ease-out; }
+@keyframes inicio-pop {
+  0% { transform: scale(0.8); }
+  55% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes inicio-tick {
+  0% { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+  60% { opacity: 1; transform: scale(1.2) rotate(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.inicio-empty { padding: 0.9rem 0.25rem; color: var(--muted); font-size: 0.9rem; }
+.inicio-link { color: var(--text); text-decoration: underline; padding: 0.6rem 0.2rem; min-height: 44px; }
+
+.inicio-sec.flash { animation: inicio-flash 1.1s ease-out; }
+@keyframes inicio-flash {
+  0% { box-shadow: 0 0 0 2px var(--primary); }
+  100% { box-shadow: 0 0 0 2px transparent; }
+}
+
+.inicio-quick {
+  position: sticky;
+  bottom: calc(0.6rem + var(--safe-bottom));
+  z-index: 15;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-top: 1.8rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-soft);
+}
+.inicio-quick-btn {
+  min-height: 50px;
+  border-radius: var(--radius-pill);
+  font-weight: 650;
+  font-size: 0.98rem;
+  color: var(--text);
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.inicio-quick-btn[data-quick="gasto"] { background: var(--primary); color: var(--primary-text); }
+.inicio-quick-btn:not([data-quick="gasto"]) { background: var(--bg-elev); }
+.inicio-quick-btn:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .inicio-check.pop::before,
+  .inicio-check.pop span,
+  .inicio-sec.flash { animation: none; }
+  .inicio-check::before, .inicio-check span, .inicio-card, .inicio-quick-btn { transition: none; }
+}

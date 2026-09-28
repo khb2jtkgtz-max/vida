@@ -2,7 +2,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "1.12.58";
+  const APP_VERSION = "1.12.59";
   // Remote sync API (used when the app is on GitHub Pages / static host)
   const _savedSyncBase = localStorage.getItem("vida-sync-base");
   const SYNC_REMOTE_BASE = (
@@ -1117,6 +1117,7 @@
           p.classList.toggle("active", on);
           p.hidden = !on;
         });
+        if (btn.dataset.tab === "inicio") renderInicio();
       });
     });
   }
@@ -1468,6 +1469,7 @@
     }
     renderHabitList();
     renderCalendar();
+    queueRenderInicio();
   }
 
   function habitFormHtml(habit) {
@@ -2480,6 +2482,7 @@
   }
 
   function renderFinanzas() {
+    queueRenderInicio();
     renderAccounts();
     renderMsiActive();
     renderLoans();
@@ -3686,6 +3689,7 @@
     renderProjectList();
     renderProjectDetail();
     renderGantt();
+    queueRenderInicio();
   }
 
   function projectFormHtml(p) {
@@ -4818,11 +4822,221 @@
     }
   }
 
+  // ========== INICIO (resumen) ==========
+  let inicioPopKey = null;
+  let inicioRenderQueued = false;
+
+  function switchTab(name) {
+    const btn = document.querySelector(`.tab[data-tab="${name}"]`);
+    if (btn) btn.click();
+    window.scrollTo({ top: 0 });
+  }
+
+  /** Re-render de Inicio agrupado (se llama tras renders de otros módulos). */
+  function queueRenderInicio() {
+    if (inicioRenderQueued) return;
+    inicioRenderQueued = true;
+    Promise.resolve().then(() => {
+      inicioRenderQueued = false;
+      renderInicio();
+    });
+  }
+
+  function inicioGreetingText() {
+    const d = new Date();
+    const wd = new Intl.DateTimeFormat("es-MX", { weekday: "long" }).format(d);
+    return `Hola, Juan · ${wd} ${d.getDate()} ${MONTHS_SHORT_ES[d.getMonth()]}`;
+  }
+
+  /** Éxito de hoy: buen hábito = "done"; mal hábito = "miss" (evitado). */
+  function inicioHabitSuccessMark(habit) {
+    return habit.type === "mal" ? "miss" : "done";
+  }
+
+  function renderInicio() {
+    if (!state || !document.getElementById("panel-inicio")) return;
+    const greet = document.getElementById("inicio-greeting");
+    if (greet) greet.textContent = inicioGreetingText();
+
+    // Dinero (mismas funciones que las tarjetas de Finanzas)
+    const assets = totalAvailableMoney();
+    const debtTotal = totalCreditDebt();
+    const owedToMe = totalLoanOutstanding();
+    document.getElementById("inicio-disponible").textContent = formatMXN(assets);
+    const debEl = document.getElementById("inicio-debes");
+    debEl.textContent = formatMXN(debtTotal);
+    debEl.closest(".inicio-debt").classList.toggle("is-zero", !(debtTotal > 0));
+    document.getElementById("inicio-cobrar").textContent = formatMXN(owedToMe);
+
+    // Hábitos de hoy
+    const t = today();
+    const habits = (state.habits || []).filter((h) => isHabitScheduled(h, t));
+    const ulH = document.getElementById("inicio-habits");
+    let doneN = 0;
+    ulH.innerHTML = habits.map((h) => {
+      const mark = getMark(h.id, t);
+      const ok = mark === inicioHabitSuccessMark(h);
+      const failed = !ok && (h.type === "mal" ? mark === "bad" : mark === "miss");
+      if (ok) doneN++;
+      const streak = currentHabitStreak(h);
+      const sub = h.type === "mal"
+        ? (ok ? "Evitado hoy" : (failed ? "Hoy caíste" : "Evitar"))
+        : (failed ? "Incumplido" : "");
+      const subTxt = [sub, streak > 1 ? `racha ${streak}` : ""].filter(Boolean).join(" · ");
+      const pop = inicioPopKey === "h:" + h.id ? " pop" : "";
+      return `<li class="inicio-row${ok ? " is-done" : ""}${failed ? " is-failed" : ""}">
+        <button type="button" class="inicio-check${pop}" data-habit-check="${escapeAttr(h.id)}" aria-pressed="${ok}" aria-label="${ok ? "Desmarcar" : "Marcar hecho"}: ${escapeAttr(h.name)}"><span aria-hidden="true">✓</span></button>
+        <button type="button" class="inicio-row-main" data-habit-open="${escapeAttr(h.id)}">
+          <span class="inicio-row-title">${escapeHtml(h.name)}</span>
+          ${subTxt ? `<span class="inicio-row-sub">${escapeHtml(subTxt)}</span>` : ""}
+        </button>
+      </li>`;
+    }).join("") || `<li class="inicio-empty">Nada para hoy. <button type="button" class="inicio-link" data-habit-new>Crear hábito</button></li>`;
+    document.getElementById("inicio-habits-progress").textContent =
+      habits.length ? `${doneN} de ${habits.length} hechos` : "";
+
+    // Próximos pagos (misma lógica de vencimiento que Finanzas)
+    const pays = [];
+    (state.accounts || []).forEach((a) => {
+      if (a.type !== "credito") return;
+      const info = creditPaymentInfo(a);
+      if (!info || !info.statementPending) return;
+      if (info.overdue || info.daysLeft <= 10) pays.push({ acc: a, info });
+    });
+    pays.sort((x, y) => x.info.daysLeft - y.info.daysLeft);
+    const paySec = document.getElementById("inicio-pay-sec");
+    paySec.classList.toggle("hidden", !pays.length);
+    document.getElementById("inicio-pays").innerHTML = pays.map(({ acc, info }) => {
+      const when = formatDayMonth(info.dueDate);
+      const whenTxt = info.overdue
+        ? `Vencido · ${when}`
+        : (info.daysLeft === 0 ? "Hoy" : (info.daysLeft === 1 ? `Mañana · ${when}` : `En ${info.daysLeft} días · ${when}`));
+      const amt = creditAmountDue(acc);
+      const urgent = info.overdue || info.daysLeft <= 1;
+      return `<li class="inicio-row${urgent ? " is-urgent" : ""}">
+        <button type="button" class="inicio-row-main inicio-row-full" data-pay-acc="${escapeAttr(acc.id)}">
+          <span class="inicio-row-text">
+            <span class="inicio-row-title">${escapeHtml(acc.name)}</span>
+            <span class="inicio-row-sub inicio-when">${escapeHtml(whenTxt)}</span>
+          </span>
+          <span class="inicio-amt">${formatMXN(amt != null ? amt : info.debt)}</span>
+        </button>
+      </li>`;
+    }).join("");
+
+    // Pendientes (tareas abiertas de proyectos no terminados)
+    const tasks = [];
+    (state.projects || []).forEach((p) => {
+      if (p.status === "terminado") return;
+      (p.tasks || []).forEach((task) => {
+        if (!task.done) tasks.push({ p, task });
+      });
+    });
+    tasks.sort((a, b) => String(a.task.end || "9999").localeCompare(String(b.task.end || "9999")));
+    const topTasks = tasks.slice(0, 5);
+    document.getElementById("inicio-tasks-sec").classList.toggle("hidden", !topTasks.length);
+    document.getElementById("inicio-tasks").innerHTML = topTasks.map(({ p, task }) => {
+      const late = task.end && task.end < t;
+      const pop = inicioPopKey === "t:" + task.id ? " pop" : "";
+      const endTxt = task.end ? formatDayMonth(parseISO(task.end)) : "";
+      return `<li class="inicio-row${late ? " is-urgent" : ""}">
+        <button type="button" class="inicio-check${pop}" data-task-check="${escapeAttr(task.id)}" data-project="${escapeAttr(p.id)}" aria-label="Completar: ${escapeAttr(task.name)}"><span aria-hidden="true">✓</span></button>
+        <button type="button" class="inicio-row-main" data-project-open="${escapeAttr(p.id)}">
+          <span class="inicio-row-title">${escapeHtml(task.name)}</span>
+          <span class="inicio-row-sub">${escapeHtml(p.name)}${endTxt ? ` · <span class="inicio-when">${late ? "venció " : ""}${escapeHtml(endTxt)}</span>` : ""}</span>
+        </button>
+      </li>`;
+    }).join("");
+    inicioPopKey = null;
+  }
+
+  function initInicio() {
+    const panel = document.getElementById("panel-inicio");
+    if (!panel) return;
+    document.getElementById("inicio-money")?.addEventListener("click", () => switchTab("finanzas"));
+    panel.addEventListener("click", (e) => {
+      const hc = e.target.closest("[data-habit-check]");
+      if (hc) {
+        const h = state.habits.find((x) => x.id === hc.dataset.habitCheck);
+        const t = today();
+        if (!h || !isHabitScheduled(h, t)) return;
+        const success = inicioHabitSuccessMark(h);
+        const next = getMark(h.id, t) === success ? null : success;
+        setMark(h.id, t, next);
+        if (next) inicioPopKey = "h:" + h.id;
+        renderHabitos();
+        renderInicio();
+        return;
+      }
+      const ho = e.target.closest("[data-habit-open]");
+      if (ho) {
+        selectedHabitId = ho.dataset.habitOpen;
+        renderHabitos();
+        switchTab("habitos");
+        return;
+      }
+      if (e.target.closest("[data-habit-new]")) {
+        openHabitModal(null);
+        return;
+      }
+      const pa = e.target.closest("[data-pay-acc]");
+      if (pa) {
+        const acc = accountById(pa.dataset.payAcc);
+        if (acc) openCreditPayModal(acc);
+        return;
+      }
+      const tc = e.target.closest("[data-task-check]");
+      if (tc) {
+        const p = state.projects.find((x) => x.id === tc.dataset.project);
+        const task = p && (p.tasks || []).find((x) => x.id === tc.dataset.taskCheck);
+        if (!task || tc.classList.contains("is-checking")) return;
+        tc.classList.add("is-checking", "pop");
+        tc.closest(".inicio-row")?.classList.add("is-done");
+        const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        setTimeout(() => {
+          task.done = true;
+          saveState();
+          renderProyectos();
+          renderInicio();
+          toast("Tarea hecha");
+        }, reduce ? 0 : 420);
+        return;
+      }
+      const po = e.target.closest("[data-project-open]");
+      if (po) {
+        selectedProjectId = po.dataset.projectOpen;
+        renderProyectos();
+        switchTab("proyectos");
+        return;
+      }
+      const q = e.target.closest("[data-quick]");
+      if (q) {
+        const kind = q.dataset.quick;
+        if (kind === "gasto" || kind === "ingreso") {
+          openTxModal(null, kind);
+        } else {
+          const sec = document.getElementById("inicio-habits-sec");
+          if (sec) {
+            sec.scrollIntoView({ behavior: "smooth", block: "start" });
+            sec.classList.remove("flash");
+            void sec.offsetWidth;
+            sec.classList.add("flash");
+          }
+        }
+      }
+    });
+    // Al volver a la app (otro día / tras segundo plano), refrescar fecha y hábitos
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) renderInicio();
+    });
+  }
+
   function renderAll() {
     updateWipeSeedVisibility();
     renderHabitos();
     renderFinanzas();
     renderProyectos();
+    renderInicio();
   }
 
   // ---------- Install banner (Apple + general) ----------
@@ -5035,6 +5249,7 @@
     initHabitos();
     initFinanzas();
     initProyectos();
+    initInicio();
     initSyncUI();
     initBackupUI();
     document.getElementById("btn-wipe-seed")?.addEventListener("click", () => { wipeSeed(); });

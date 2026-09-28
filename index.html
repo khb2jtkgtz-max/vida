@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Vida" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11258" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11258" />
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11258" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=11259" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=11259" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=11259" />
 
   <title>Vida — Hábitos, Finanzas y Proyectos</title>
   <script>
@@ -26,13 +26,13 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=11258" />
+  <link rel="stylesheet" href="styles.css?v=11259" />
 </head>
 <body>
   <div id="app">
     <header class="app-header">
       <div class="brand">
-        <img class="brand-mark" src="icons/icon-192.png?v=11258" width="36" height="36" alt="" />
+        <img class="brand-mark" src="icons/icon-192.png?v=11259" width="36" height="36" alt="" />
         <h1>Vida</h1>
       </div>
       <div class="header-actions">
@@ -44,7 +44,11 @@
     </header>
 
     <nav class="tabs tab-bar segment-tabs" role="tablist" aria-label="Módulos">
-      <button class="tab active" data-tab="habitos" role="tab" aria-selected="true">
+      <button class="tab active" data-tab="inicio" role="tab" aria-selected="true">
+        <span class="tab-icon" aria-hidden="true">○</span>
+        <span class="tab-label">Inicio</span>
+      </button>
+      <button class="tab" data-tab="habitos" role="tab" aria-selected="false">
         <span class="tab-icon" aria-hidden="true">✓</span>
         <span class="tab-label">Hábitos</span>
       </button>
@@ -65,8 +69,46 @@
     </button>
 
     <main>
+      <!-- ========== INICIO ========== -->
+      <section id="panel-inicio" class="panel active" role="tabpanel" aria-label="Inicio">
+        <p id="inicio-greeting" class="inicio-greeting">Hola, Juan</p>
+
+        <button type="button" id="inicio-money" class="inicio-card inicio-money" aria-label="Ir a Finanzas">
+          <span class="inicio-label">Disponible</span>
+          <strong id="inicio-disponible" class="inicio-big">$0.00</strong>
+          <span class="inicio-money-row">
+            <span class="inicio-debt"><span class="inicio-label">Lo que debes</span> <strong id="inicio-debes">$0.00</strong></span>
+            <span class="inicio-recv"><span class="inicio-label">Por cobrar</span> <span id="inicio-cobrar">$0.00</span></span>
+          </span>
+        </button>
+
+        <div id="inicio-habits-sec" class="inicio-sec">
+          <div class="inicio-sec-head">
+            <h3>Hábitos de hoy</h3>
+            <span id="inicio-habits-progress" class="inicio-progress"></span>
+          </div>
+          <ul id="inicio-habits" class="inicio-list"></ul>
+        </div>
+
+        <div id="inicio-pay-sec" class="inicio-sec hidden">
+          <div class="inicio-sec-head"><h3>Próximos pagos</h3></div>
+          <ul id="inicio-pays" class="inicio-list"></ul>
+        </div>
+
+        <div id="inicio-tasks-sec" class="inicio-sec hidden">
+          <div class="inicio-sec-head"><h3>Pendientes</h3></div>
+          <ul id="inicio-tasks" class="inicio-list"></ul>
+        </div>
+
+        <div class="inicio-quick" role="group" aria-label="Registrar rápido">
+          <button type="button" class="inicio-quick-btn" data-quick="gasto">− Gasto</button>
+          <button type="button" class="inicio-quick-btn" data-quick="ingreso">+ Ingreso</button>
+          <button type="button" class="inicio-quick-btn" data-quick="habito">✓ Hábito</button>
+        </div>
+      </section>
+
       <!-- ========== HÁBITOS ========== -->
-      <section id="panel-habitos" class="panel active" role="tabpanel">
+      <section id="panel-habitos" class="panel" role="tabpanel" hidden>
         <div class="panel-toolbar">
           <h2>Hábitos</h2>
           <button type="button" id="btn-new-habit" class="btn-primary">+</button>
@@ -376,6 +418,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="app.js?v=11258"></script>
+  <script src="app.js?v=11259"></script>
 </body>
 </html>
